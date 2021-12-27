@@ -21,3 +21,11 @@
 #'  diffgenes.example
 #' )
 "diffgenes.example"
+
+#' module_list.example
+#'
+#' @examples
+#' head(
+#'  module_list.example
+#' )
+"module_list.example"

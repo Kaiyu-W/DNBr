@@ -11,6 +11,7 @@ DNBplot(
   show = TRUE,
   save_pdf = FALSE,
   file_prefix = NULL,
+  meta_levels = NULL,
   ...
 )
 }
@@ -26,6 +27,8 @@ DNBplot(
 \item{save_pdf}{whether to save pdf file}
 
 \item{file_prefix}{the file prefix if save_pdf}
+
+\item{meta_levels}{the order of meta-group in the plots, default levels(df_score$Names) if be null}
 
 \item{...}{for future use}
 }
@@ -43,4 +46,7 @@ a <- DNBcompute(data.example, meta.example, diffgenes.example)
 b <- DNBfilter(a, ntop = 5)
 DNBplot(b, show = TRUE, save_pdf = FALSE)
 
+}
+\author{
+Kaiyu Wang, in ChenLab of CAS, Shanghai, China
 }

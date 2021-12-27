@@ -29,3 +29,6 @@ maxRank <- getMaxRanking(b, group = "C") # get 4 instead of 5
 DNBplot(b, ranking = maxRank, group = "C", show = TRUE, save_pdf = FALSE)
 
 }
+\author{
+Kaiyu Wang, in ChenLab of CAS, Shanghai, China
+}

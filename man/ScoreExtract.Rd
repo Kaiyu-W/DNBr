@@ -35,3 +35,6 @@ df_score <- ScoreExtract(
 df_score
 
 }
+\author{
+Kaiyu Wang, in ChenLab of CAS, Shanghai, China
+}

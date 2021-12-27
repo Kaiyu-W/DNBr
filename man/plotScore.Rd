@@ -4,7 +4,14 @@
 \alias{plotScore}
 \title{plotScore}
 \usage{
-plotScore(df_score, show = TRUE, save_pdf = FALSE, file_prefix = NULL, ...)
+plotScore(
+  df_score,
+  show = TRUE,
+  save_pdf = FALSE,
+  file_prefix = NULL,
+  meta_levels = NULL,
+  ...
+)
 }
 \arguments{
 \item{df_score}{score data.frame, colnames includes 'SCORE','PCC_IN','PCC_OUT','SD','Names'(group)}
@@ -14,6 +21,8 @@ plotScore(df_score, show = TRUE, save_pdf = FALSE, file_prefix = NULL, ...)
 \item{save_pdf}{whether to save into a pdf file}
 
 \item{file_prefix}{if save_pdf, the file prefix name}
+
+\item{meta_levels}{the order of meta-group in the plots, default levels(df_score$Names) if be null}
 
 \item{...}{parameters to ggsave()}
 }

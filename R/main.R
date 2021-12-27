@@ -11,7 +11,7 @@
 #' @param meta a data.frame with rownames as cell-id as well as one column of group infomation
 #' @param diffgenes which genes we're interested in
 #' @param allgenes the whole genes that ordered by expression, or the rownames of GEM (default)
-#' @param meta_levels  the order of meta group, default ordered by decreasing if be null
+#' @param meta_levels the order of meta group, default ordered by decreasing if be null
 #' @param high_method the method to select genes for the first step, by either high_cv (default) or top_gene
 #' @param high_cutoff the cutoff value corresponding to the high_method,
 #'      with the range between 0-1 for high_cv and 1-length(allgenes) for top_gene
@@ -52,6 +52,15 @@ DNBcompute <- function(
     fastMode = FALSE,
     writefile = FALSE
 ) {
+    match.arg(high_method)
+    match.arg(cutree_method)
+    if (length(high_method != 1))
+        high_method <- high_method[1]
+    if (length(cutree_method != 1))
+        cutree_method <- cutree_method[1]
+    if (fastMode & !quiet)
+        message("quiet will be set as TRUE if fastMode set as TRUE!")
+    
     # step1. parameters config
     if (!is.matrix(data) && !is.data.frame(data))
         stop("ERROR data input! Should be matrix or data.frame!")
@@ -65,14 +74,10 @@ DNBcompute <- function(
         stop("ERROR meta! Please check the rownames of meta df (or names of meta vector) or the colnames of data input!")
     if (ncol(meta) != 1)
         stop("ERROR meta! Meta df only has one column!")
-    if (!all(meta_levels %in% meta[, 1]))
-        stop("ERROR meta_levels! Should be equal to meta!")
-    match.arg(high_method)
-    match.arg(cutree_method)
-    if (length(high_method != 1))
-        high_method <- high_method[1]
-    if (length(cutree_method != 1))
-        cutree_method <- cutree_method[1]
+    if (!is.null(meta_levels))
+        if (!all(meta_levels %in% meta[, 1]))
+            stop("ERROR meta_levels! Should be equal to meta!")
+
     if (high_method == "high_cv") {
         if (high_cutoff > 1 || high_cutoff <= 0)
             stop("ERROR high_cutoff! Should be between 0 and 1 when high_method is high_cv!")
@@ -88,8 +93,6 @@ DNBcompute <- function(
         if (cutree_cutoff < 1)
             stop("ERROR cutree_cutoff! Should be between greater than 1 when cutree_method is k!")
     }
-    if (fastMode & !quiet)
-        message("quiet will be set as TRUE if fastMode set as TRUE!")
 
     if (is.null(meta_levels)) {
         meta <- meta[order(meta[, 1], decreasing = T), , drop = F]
@@ -106,7 +109,7 @@ DNBcompute <- function(
         group <- meta_levels
     }
     data <- data[, rownames(meta), drop = F]
-
+    
     # step2. initiate result
     DNB_output <- mynew.DNB_output(group = group)
 
@@ -117,7 +120,7 @@ DNBcompute <- function(
         DNB_output <- lapply(
             group,
             function(group_tmp) {
-                data_tmp <- data[, rownames(meta)[meta[, 1] == group_tmp]]
+                data_tmp <- data[, rownames(meta)[meta[, 1] == group_tmp], drop = FALSE]
                 data_tmp <- data.frame(data_tmp, check.names = FALSE)
                 cse <- myprocess(
                     data = data_tmp, assay_name = group_tmp, quiet = TRUE,
@@ -138,7 +141,7 @@ DNBcompute <- function(
             cat('Now run ', group_tmp, '\n', sep = '')
 
             # subset data
-            data_tmp <- data[, rownames(meta)[meta[, 1] == group_tmp]]
+            data_tmp <- data[, rownames(meta)[meta[, 1] == group_tmp], drop = FALSE]
             data_tmp <- data.frame(data_tmp, check.names = FALSE)
 
             # process sub-data
@@ -188,6 +191,8 @@ DNBcompute <- function(
 #' @examples a <- DNBcompute(data.example, meta.example, diffgenes.example)
 #' @examples b <- DNBfilter(a, ntop = 5)
 #' @examples b
+#'
+#' @author Kaiyu Wang, in ChenLab of CAS, Shanghai, China
 #'
 DNBfilter <- function(
     DNB_output,
@@ -272,6 +277,8 @@ DNBfilter <- function(
 #' @examples )
 #' @examples df_score
 #'
+#' @author Kaiyu Wang, in ChenLab of CAS, Shanghai, China
+#'
 ScoreExtract <- function(
     object,
     ranking = NULL,
@@ -306,6 +313,8 @@ ScoreExtract <- function(
 #' @examples )
 #' @examples df_score
 #'
+#' @author Kaiyu Wang, in ChenLab of CAS, Shanghai, China
+#'
 resultAllExtract <- function(
     object,
     group, 
@@ -334,6 +343,8 @@ resultAllExtract <- function(
 #' @examples b <- DNBfilter(a, ntop = 5)
 #' @examples maxRank <- getMaxRanking(b, group = "C") # get 4 instead of 5
 #' @examples DNBplot(b, ranking = maxRank, group = "C", show = TRUE, save_pdf = FALSE)
+#'
+#' @author Kaiyu Wang, in ChenLab of CAS, Shanghai, China
 #'
 getMaxRanking <- function(
     object,
@@ -366,6 +377,8 @@ getMaxRanking <- function(
 #' @examples b <- DNBfilter(a, ntop = 5)
 #' @examples DNBplot(b, show = TRUE, save_pdf = FALSE)
 #'
+#' @author Kaiyu Wang, in ChenLab of CAS, Shanghai, China
+#'
 DNBplot <- function(
     object, 
     ranking = NULL, 
@@ -377,4 +390,89 @@ DNBplot <- function(
     ...
 ) {
     UseMethod("DNBplot")
+}
+
+#' @title DNBcompute_custom
+#'
+#' @description Compute the Dynamic Network Biomarkers(DNB) model with customized Modules
+#'
+#' @details return a S3 object includes several S4 objects
+#'
+#' @param data the gene expression matrix,
+#'      which can be a single-cell RNA-seq GEM with at least three group/clusters
+#'      or a matrix merging bulk GEMs from at least three different sample
+#' @param meta a data.frame with rownames as cell-id as well as one column of group infomation
+#' @param module_list a customized list of module gene
+#' @param meta_levels the order of meta group, default ordered by decreasing if be null
+#'
+#' @return S3:DNB_output
+#'
+#' @examples data(data.example)
+#' @examples data(meta.example)
+#' @examples data(module_list.example)
+#' @examples b <- DNBcompute_custom(data.example, meta.example, module_list.example)
+#' @examples b
+#' @examples DNBplot(b, group = "D", ranking = 1, show = TRUE, save_pdf = FALSE)
+#' @examples DNBplot(b, group = "D", ranking = 2, show = TRUE, save_pdf = FALSE)
+#'
+#' @author Kaiyu Wang, in ChenLab of CAS, Shanghai, China
+#'
+#' @export
+#'
+DNBcompute_custom <- function(
+    data, 
+    meta, 
+    module_list, 
+    meta_levels = NULL
+) {
+    if (!is.matrix(data) && !is.data.frame(data))
+        stop("ERROR data input! Should be matrix or data.frame!")
+    if (!is.data.frame(meta))
+        meta <- as.data.frame(meta) # if meta is a vector with names
+    if (!is.list(module_list))
+        stop("ERROR module_list! Please input a list!")
+    if (!all(unique(unlist(module_list)) %in% rownames(data)))
+        stop("ERROR module_list! Please check the all names of module_list or the rownames of data input!")
+    if (!all(colnames(data) %in% rownames(meta)))
+        stop("ERROR meta! Please check the rownames of meta df (or names of meta vector) or the colnames of data input!")
+    if (ncol(meta) != 1)
+        stop("ERROR meta! Meta df only has one column!")
+    if (!is.null(meta_levels))
+        if (!all(meta_levels %in% meta[, 1]))
+            stop("ERROR meta_levels! Should be equal to meta!")
+    if (is.null(meta_levels)) {
+        meta <- meta[order(meta[, 1], decreasing = T), , drop = F]
+        meta_levels <- unique(meta[, 1])
+    } else {
+        meta_tmp <- meta[1, , drop = F]
+        rownames(meta_tmp) <- 'NA'
+        for (i in meta_levels) {
+            meta_tmp_tmp <- meta[meta[, 1] == i, , drop = F]
+            meta_tmp_tmp <- meta_tmp_tmp[order(rownames(meta_tmp_tmp), decreasing = T), , drop = F]
+            meta_tmp <- rbind(meta_tmp, meta_tmp_tmp)
+        }
+        meta <- meta_tmp[-1, , drop = F]
+    }
+    data <- data[, rownames(meta), drop = F]
+
+    module_len <- length(module_list)
+    DNB_output <- list()
+    for (i in meta_levels) {
+        data_tmp <- data[, rownames(meta)[meta[, 1] == i], drop = FALSE]
+        data_tmp <- data.frame(data_tmp, check.names = FALSE)
+
+        DNB_output[[i]] <- mynew_dnb(
+            data = data_tmp, 
+            pre_result = mynew.DNB_res(ntop = module_len), 
+            result = mynew.DNB_res(ntop = module_len)
+        )
+        DNB_output[[i]]@pre_result@resource <- rep(i, module_len)
+        DNB_output[[i]]@pre_result@rank <- seq(module_list)
+        DNB_output[[i]]@pre_result@MODULEs@MODULE <- module_list
+        DNB_output[[i]]@pre_result@MODULEs@bestMODULE <- rep(TRUE, module_len)
+    }
+    DNB_output <- mynew.DNB_output(group = meta_levels, list_obj = DNB_output)
+    DNB_output <- DNBfilter(DNB_output, ntop = module_len)
+
+    return(DNB_output)
 }

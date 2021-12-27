@@ -28,3 +28,6 @@ b <- DNBfilter(a, ntop = 5)
 b
 
 }
+\author{
+Kaiyu Wang, in ChenLab of CAS, Shanghai, China
+}

@@ -82,4 +82,18 @@ df_allscore
 
 # slot rank refers to the ranking for each module inside its own group 
 # slot rank_all refers to the ranking for each module in all modules of that group 
+
+# *optional
+# if you have an advanced list or more of module genes, to compute DNB for this module,
+# here is a good resolution:
+data(module_list.example)
+b <- DNBcompute_custom(
+    data = data.example, 
+    meta = meta.example, 
+    module_list = module_list.example
+)
+b
+DNBplot(b, group = "D", ranking = 1, show = TRUE, save_pdf = FALSE)
+# In this case, all groups (resources) will get the customized module lists, so group can be anyone (ignored) !
+
 ```

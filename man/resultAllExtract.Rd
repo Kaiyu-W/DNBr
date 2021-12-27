@@ -4,7 +4,7 @@
 \alias{resultAllExtract}
 \title{resultAllExtract}
 \usage{
-resultAllExtract(object, group, slot, ...)
+resultAllExtract(object, group, slot, mess = TRUE, ...)
 }
 \arguments{
 \item{object}{the S3-DNB_output}
@@ -12,6 +12,8 @@ resultAllExtract(object, group, slot, ...)
 \item{group}{which sub-group of S3-DNB_output to extract}
 
 \item{slot}{which S4-DNB_obj to extract, pre_result or result}
+
+\item{mess}{whether to message if slot is pre_result, default TRUE}
 
 \item{...}{for future use}
 }
@@ -34,4 +36,7 @@ df_score <- resultAllExtract(
 )
 df_score
 
+}
+\author{
+Kaiyu Wang, in ChenLab of CAS, Shanghai, China
 }
