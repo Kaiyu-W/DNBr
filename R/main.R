@@ -160,7 +160,7 @@ DNBcompute <- function(
             names(DNB_output),
             function(x) {
                 file_names <- paste0("DNB_Module_information_", x, ".txt")
-                DNB_output_mtx <- resultAllExtract(DNB_output, group = x, slot = "pre_result")
+                DNB_output_mtx <- resultAllExtract(DNB_output, group = x, slot = "pre_result", mess = FALSE)
                 cat("Now write output of ", x, " into ", file_names, "\n", sep = "")
                 write.table(DNB_output_mtx, file = file_names, quote = F, sep = "\t")
             }
@@ -288,6 +288,7 @@ ScoreExtract <- function(
 #' @param object the S3-DNB_output
 #' @param group which sub-group of S3-DNB_output to extract
 #' @param slot which S4-DNB_obj to extract, pre_result or result
+#' @param mess whether to message if slot is pre_result, default TRUE
 #' @param ... for future use
 #'
 #' @return data.frame
@@ -309,6 +310,7 @@ resultAllExtract <- function(
     object,
     group, 
     slot,
+    mess = TRUE,
     ...
 ) {
     UseMethod("resultAllExtract")

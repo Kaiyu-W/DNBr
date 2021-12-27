@@ -361,6 +361,7 @@ getMaxRanking.DNB_output <- function(
 #' @param object the S3-DNB_output
 #' @param group which sub-group of S3-DNB_output to extract
 #' @param slot which S4-DNB_obj to extract, pre_result or result
+#' @param mess whether to message if slot is pre_result, default TRUE
 #' @param ... not use
 #'
 #' @return data.frame
@@ -371,10 +372,11 @@ resultAllExtract.DNB_output <- function(
     object,
     group,
     slot,
+    mess = TRUE,
     ...
 ) {
     match.arg(arg = slot, choices = c("pre_result", "result"), several.ok = FALSE)
-    if (slot == "pre_result")
+    if (slot == "pre_result" & mess)
         message("Modules from pre_result may be of large amount, please use it carefully when printing directly!")
 
     result <- methods::slot(object[[group]], slot)
