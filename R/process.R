@@ -99,21 +99,15 @@ myprocess <- function(
 
     mycat("\tCompute all modules' score ...\n", quiet = quiet)
     if (fastMode) {
-        iii <- 0
-        pb <- utils::txtProgressBar(style = 3)
         score_mtx_tmp <- sapply(
             cut_sle_up2_1,
             function(i) {
-                cse <- compute_score_eachgroup(
+                compute_score_eachgroup(
                     cut_sle = cut_sle, group = i, diffgenes = diffgenes, hig_gene = hig_gene,
                     sle_tab = sle_tab, cv_all = cv_all, sd_all = sd_all, mean_all = mean_all,
                     minModule = minModule, maxModule = maxModule)
-                iii <<- iii + 1
-                utils::setTxtProgressBar(pb, iii / len_size_up2_1)
-                return(cse)
             }
         )
-        close(pb)
         colnames(score_mtx_tmp) <- colnames(score_mtx)
         rownames(score_mtx_tmp) <- rownames(score_mtx)
         score_mtx <- score_mtx_tmp
@@ -382,7 +376,7 @@ resultAllExtract.DNB_output <- function(
     match.arg(arg = slot, choices = c("pre_result", "result"), several.ok = FALSE)
     if (slot == "pre_result")
         message("Modules from pre_result may be of large amount, please use it carefully when printing directly!")
-    
+
     result <- methods::slot(object[[group]], slot)
 
     MEAN <- result@MEAN
@@ -449,9 +443,9 @@ ScoreExtract.DNB_output <- function(
     data <- object[[1]]@result
     if (length(data@rank) == 0)
         stop("No module found! Please check or run DNBfilter() !")
-    
+
     cat("Use group=", group, " and ranking=", ranking, "\n", sep = "")
-    
+
     index_group <- which(data@resource == group)
     index_rank <- which(data@rank == ranking)
     index <- intersect(index_group, index_rank)

@@ -112,20 +112,26 @@ DNBcompute <- function(
 
     # step3. process computation in order of meta
     if (fastMode) {
+        iii <- 0
+        pb <- utils::txtProgressBar(style = 3)
         DNB_output <- lapply(
             group,
             function(group_tmp) {
                 data_tmp <- data[, rownames(meta)[meta[, 1] == group_tmp]]
                 data_tmp <- data.frame(data_tmp, check.names = FALSE)
-                myprocess(
+                cse <- myprocess(
                     data = data_tmp, assay_name = group_tmp, quiet = TRUE,
                     diffgenes = diffgenes, allgenes = allgenes,
                     high_method = high_method, high_cutoff = high_cutoff,
                     cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
                     minModule = minModule, maxModule = maxModule, fastMode = TRUE
                     )
+                iii <<- iii + 1
+                utils::setTxtProgressBar(pb, iii / length(group))
+                return(cse)
             }
         )
+        close(pb)
         DNB_output <- mynew.DNB_output(group = group, list_obj = DNB_output)
     } else {
         for (group_tmp in group) {
