@@ -442,7 +442,9 @@ ScoreExtract.DNB_output <- function(
     data <- object[[1]]@result
     if (length(data@rank) == 0)
         stop("No module found! Please check or run DNBfilter() !")
-
+    
+    cat("Use group=", group, " and ranking=", ranking, "\n", sep = "")
+    
     index_group <- which(data@resource == group)
     index_rank <- which(data@rank == ranking)
     index <- intersect(index_group, index_rank)
