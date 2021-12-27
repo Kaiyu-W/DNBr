@@ -19,7 +19,7 @@ DNBplot.DNB_output <- function(
     show = TRUE,
     save_pdf = FALSE,
     file_prefix = NULL,
-    meta_levels = NULL
+    meta_levels = NULL,
     ...
 ) {
     df_score <- ScoreExtract(
@@ -58,7 +58,7 @@ DNBplot.data.frame <- function(
     show = TRUE,
     save_pdf = FALSE,
     file_prefix = NULL,
-    meta_levels = NULL
+    meta_levels = NULL,
     ...
 ) {
     plotScore(
