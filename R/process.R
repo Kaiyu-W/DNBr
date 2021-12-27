@@ -373,6 +373,9 @@ resultAllExtract.DNB_output <- function(
     ...
 ) {
     match.arg(arg = slot, choices = c("pre_result", "result"), several.ok = FALSE)
+    if (slot == "pre_result")
+        message("Modules from pre_result may be of large amount, please use it carefully when printing directly!")
+    
     result <- methods::slot(object[[group]], slot)
 
     MEAN <- result@MEAN
