@@ -345,6 +345,7 @@ getMaxRanking <- function(
 #' @param show whether to show
 #' @param save_pdf whether to save pdf file
 #' @param file_prefix the file prefix if save_pdf
+#' @param meta_levels the order of meta-group in the plots, default levels(df_score$Names) if be null
 #' @param ... for future use
 #'
 #' @return plot or pdf
@@ -364,6 +365,7 @@ DNBplot <- function(
     show = TRUE, 
     save_pdf = FALSE, 
     file_prefix = NULL,
+    meta_levels = NULL,
     ...
 ) {
     UseMethod("DNBplot")
