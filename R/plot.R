@@ -6,6 +6,7 @@
 #' @param show whether to show
 #' @param save_pdf whether to save pdf file
 #' @param file_prefix the file prefix if save_pdf
+#' @param meta_levels the order of meta-group in the plots, default levels(df_score$Names) if be null
 #' @param ... not use
 #'
 #' @export DNBplot.DNB_output
@@ -18,6 +19,7 @@ DNBplot.DNB_output <- function(
     show = TRUE,
     save_pdf = FALSE,
     file_prefix = NULL,
+    meta_levels = NULL
     ...
 ) {
     df_score <- ScoreExtract(
@@ -30,7 +32,8 @@ DNBplot.DNB_output <- function(
         df_score = df_score,
         file_prefix = file_prefix,
         show = show,
-        save_pdf = save_pdf
+        save_pdf = save_pdf,
+        meta_levels = meta_levels
     )
 }
 
@@ -42,6 +45,7 @@ DNBplot.DNB_output <- function(
 #' @param show whether to show
 #' @param save_pdf whether to save pdf file
 #' @param file_prefix the file prefix if save_pdf
+#' @param meta_levels the order of meta-group in the plots, default levels(df_score$Names) if be null
 #' @param ... not use
 #'
 #' @export DNBplot.data.frame
@@ -54,13 +58,15 @@ DNBplot.data.frame <- function(
     show = TRUE,
     save_pdf = FALSE,
     file_prefix = NULL,
+    meta_levels = NULL
     ...
 ) {
     plotScore(
         df_score = object,
         file_prefix = file_prefix,
         show = show,
-        save_pdf = save_pdf
+        save_pdf = save_pdf,
+        meta_levels = meta_levels
     )
 }
 
@@ -72,6 +78,7 @@ DNBplot.data.frame <- function(
 #' @param show whether to plot in console
 #' @param save_pdf whether to save into a pdf file
 #' @param file_prefix if save_pdf, the file prefix name
+#' @param meta_levels the order of meta-group in the plots, default levels(df_score$Names) if be null
 #' @param ... parameters to ggsave()
 #'
 #' @return plot(if ggplot2/gridExtra installed, return ggplot object) or pdf
@@ -82,8 +89,17 @@ plotScore <- function(
     show = TRUE,
     save_pdf = FALSE,
     file_prefix = NULL,
+    meta_levels = NULL,
     ...
 ) {
+    if (!is.data.frame(df_score))
+        stop("ERROR df_score! Should be a data.frame!")
+    if (!is.null(meta_levels)) {
+        if (!all(meta_levels %in% df_score$Names))
+            stop("ERROR meta_levels! Should be equal to unique(df_score$Names)!")
+        df_score$Names <- factor(df_score$Names, levels = meta_levels)
+    }
+
     pp <- function(df, y) {
         Names <- "Names"
         df_score <- df[, c(Names, y)]
