@@ -99,14 +99,21 @@ myprocess <- function(
 
     mycat("\tCompute all modules' score ...\n", quiet = quiet)
     if (fastMode) {
+        iii <- 0
+        pb <- utils::txtProgressBar(style = 3)
         score_mtx_tmp <- sapply(
             cut_sle_up2_1,
-            function(i)
-                compute_score_eachgroup(
+            function(i) {
+                cse <- compute_score_eachgroup(
                     cut_sle = cut_sle, group = i, diffgenes = diffgenes, hig_gene = hig_gene,
                     sle_tab = sle_tab, cv_all = cv_all, sd_all = sd_all, mean_all = mean_all,
                     minModule = minModule, maxModule = maxModule)
+                iii <<- iii + 1
+                utils::setTxtProgressBar(pb, iii / len_size_up2_1)
+                return(cse)
+            }
         )
+        close(pb)
         colnames(score_mtx_tmp) <- colnames(score_mtx)
         rownames(score_mtx_tmp) <- rownames(score_mtx)
         score_mtx <- score_mtx_tmp
