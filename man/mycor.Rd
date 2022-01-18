@@ -4,7 +4,7 @@
 \alias{mycor}
 \title{to ignore the warning and error of correlation computation}
 \usage{
-mycor(...)
+mycor(x, y = NULL, ...)
 }
 \arguments{
 \item{x}{x}
