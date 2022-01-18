@@ -283,7 +283,7 @@ singleDNB <- function(
 ) {
     # prepare data
     data_tmp <- t(data)
-    data_tmp <- data.frame(data_tmp, check.names = FALSE)
+    # data_tmp <- data.frame(data_tmp, check.names = FALSE)
     all_genes <- rownames(data)
 
     # base computation
