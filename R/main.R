@@ -122,7 +122,7 @@ DNBcompute <- function(
             group,
             function(group_tmp) {
                 data_tmp <- data[, rownames(meta)[meta[, 1] == group_tmp], drop = FALSE]
-                data_tmp <- data.frame(data_tmp, check.names = FALSE)
+                # data_tmp <- data.frame(data_tmp, check.names = FALSE)
                 cse <- myprocess(
                     data = data_tmp, assay_name = group_tmp, quiet = TRUE,
                     diffgenes = diffgenes, allgenes = allgenes,
@@ -143,7 +143,7 @@ DNBcompute <- function(
 
             # subset data
             data_tmp <- data[, rownames(meta)[meta[, 1] == group_tmp], drop = FALSE]
-            data_tmp <- data.frame(data_tmp, check.names = FALSE)
+            # data_tmp <- data.frame(data_tmp, check.names = FALSE)
 
             # process sub-data
             DNB_output[[group_tmp]] <- myprocess(
