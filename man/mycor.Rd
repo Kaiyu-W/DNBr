@@ -7,6 +7,8 @@
 mycor(...)
 }
 \arguments{
+\item{x}{x}
+\item{y}{y}
 \item{...}{parameters of function cor}
 }
 \description{
