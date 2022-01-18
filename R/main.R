@@ -62,7 +62,8 @@ DNBcompute <- function(
         message("quiet will be set as TRUE if fastMode set as TRUE!")
     
     # step1. parameters config
-    if (!is.matrix(data) && !is.data.frame(data))
+    # if (!is.matrix(data) && !is.data.frame(data))
+    if (!is(data, "Matrix") && !is.data.frame(data))
         stop("ERROR data input! Should be matrix or data.frame!")
     if (is.null(allgenes))
         allgenes <- rownames(data)
@@ -425,7 +426,8 @@ DNBcompute_custom <- function(
     module_list, 
     meta_levels = NULL
 ) {
-    if (!is.matrix(data) && !is.data.frame(data))
+    # if (!is.matrix(data) && !is.data.frame(data))
+    if (!is(data, "Matrix") && !is.data.frame(data))
         stop("ERROR data input! Should be matrix or data.frame!")
     if (!is.data.frame(meta))
         meta <- as.data.frame(meta) # if meta is a vector with names
