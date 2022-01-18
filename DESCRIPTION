@@ -1,7 +1,7 @@
 Package: DNBr
 Type: Package
 Title: Compute the Dynamic Network Biomarkers (DNB) model
-Version: 0.1.2
+Version: 0.1.3
 Author: person(given = 'Kaiyu', family = 'Wang', role = 'aut', email = "wangkaiyu2020@sibcb.ac.cn")
 Maintainer: ChenLab in CAS <lnchen@sibs.ac.cn>
 Description: Based on DNB model, the package is designed to compute data from several bulk-seq or scRNA-seq with multiple groups.
