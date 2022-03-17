@@ -20,7 +20,7 @@
 #'      with the range between 0-1 for h and a number greater than 0 for k
 #' @param minModule the min number of genes of the module meeting requirements
 #' @param maxModule the max number of genes of the module meeting requirements
-#' @param quiet do not print output of process during calculation, default FALSE
+#' @param quiet do not print output of process during calculation (against verbose), default FALSE
 #' @param fastMode avoid using for loop, rathan apply-like function, default FALSE; if TRUE, quiet will be set as TRUE
 #' @param writefile write results of each group into DNB_Module_information_xx.txt with tab delimiter, default FALSE
 #'
