@@ -7,7 +7,7 @@
 DNBcompute(
   data,
   meta,
-  diffgenes,
+  diffgenes = NULL,
   allgenes = NULL,
   meta_levels = NULL,
   high_method = c("high_cv", "top_gene"),
@@ -28,7 +28,7 @@ or a matrix merging bulk GEMs from at least three different sample}
 
 \item{meta}{a data.frame with rownames as cell-id as well as one column of group infomation}
 
-\item{diffgenes}{which genes we're interested in}
+\item{diffgenes}{which genes we're interested in, or no special ones (all, default)}
 
 \item{allgenes}{the whole genes that ordered by expression, or the rownames of GEM (default)}
 
@@ -68,8 +68,7 @@ return a S3 object includes several S4 objects
 \examples{
 data(data.example)
 data(meta.example)
-data(diffgenes.example)
-a <- DNBcompute(data.example, meta.example, diffgenes.example)
+a <- DNBcompute(data.example, meta.example)
 a
 
 }
