@@ -19,7 +19,7 @@ library(DNBr)
 
 data(data.example)
 data(meta.example)
-data(diffgenes.example)
+# data(diffgenes.example)
 
 # step1. Compute DNB's all modules of each group, return pre-result
 # data.example can be sparse matrix (dgCMatrix)
@@ -27,7 +27,7 @@ data(diffgenes.example)
 a <- DNBcompute(
     data = data.example, 
     meta = meta.example, 
-    diffgenes = diffgenes.example
+    # diffgenes = diffgenes.example
 )
 a
 a$A
