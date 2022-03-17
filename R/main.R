@@ -9,7 +9,7 @@
 #'      which can be a single-cell RNA-seq GEM with at least three group/clusters
 #'      or a matrix merging bulk GEMs from at least three different sample
 #' @param meta a data.frame with rownames as cell-id as well as one column of group infomation
-#' @param diffgenes which genes we're interested in
+#' @param diffgenes which genes we're interested in, or no special ones (all, default)
 #' @param allgenes the whole genes that ordered by expression, or the rownames of GEM (default)
 #' @param meta_levels the order of meta group, default ordered by decreasing if be null
 #' @param high_method the method to select genes for the first step, by either high_cv (default) or top_gene
@@ -28,8 +28,7 @@
 #'
 #' @examples data(data.example)
 #' @examples data(meta.example)
-#' @examples data(diffgenes.example)
-#' @examples a <- DNBcompute(data.example, meta.example, diffgenes.example)
+#' @examples a <- DNBcompute(data.example, meta.example)
 #' @examples a
 #'
 #' @author Kaiyu Wang, in ChenLab of CAS, Shanghai, China
@@ -39,7 +38,7 @@
 DNBcompute <- function(
     data,
     meta,
-    diffgenes,
+    diffgenes = NULL,
     allgenes = NULL,
     meta_levels = NULL,
     high_method = c('high_cv', 'top_gene'),
@@ -67,8 +66,11 @@ DNBcompute <- function(
         stop("ERROR data input! Should be matrix or data.frame!")
     if (is.null(allgenes))
         allgenes <- rownames(data)
-    if (!all(diffgenes %in% allgenes))
-        stop("ERROR genes! Please check the allgenes or diffgenes input!")
+    if (is.null(diffgenes))
+        diffgenes <- allgenes
+    else
+        if (!all(diffgenes %in% allgenes))
+            stop("ERROR genes! Please check the allgenes or diffgenes input!")
     if (!is.data.frame(meta))
         meta <- as.data.frame(meta) # if meta is a vector with names
     if (!all(colnames(data) %in% rownames(meta)))
