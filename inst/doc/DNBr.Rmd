@@ -19,14 +19,14 @@ library(DNBr)
 
 data(data.example)
 data(meta.example)
-data(diffgenes.example)
+# data(diffgenes.example)
 
 # step1. Compute DNB's all modules of each group, return pre-result
 # more parameter's details see ?DNBr::DNBcompute
 a <- DNBcompute(
     data = data.example, 
     meta = meta.example, 
-    diffgenes = diffgenes.example
+    # diffgenes = diffgenes.example
 )
 a
 a$A
