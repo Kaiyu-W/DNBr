@@ -12,6 +12,7 @@ data(meta.example)
 # data(diffgenes.example)
 
 # step1. Compute DNB's all modules of each group, return pre-result
+# data.example can be sparse matrix (dgCMatrix)
 # more parameter's details see ?DNBr::DNBcompute
 a <- DNBcompute(
     data = data.example, 
@@ -34,7 +35,8 @@ b$A
 # or when there are not enough modules to fit your requirement.
 maxRank_A <- getMaxRanking(b, group = "A")
 maxRank_A 
-# get 3 instead of 5
+# get 5
+# sometime this value is actually less to the ntop you assigned in last step (here 5)
 
 # step4. Select the best module for all groups
 # group means which group the module is computed from

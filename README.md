@@ -17,9 +17,8 @@ __Example__:
 library(DNBr)
 data(data.example)
 data(meta.example)
-data(diffgenes.example)
 
-a <- DNBcompute(data.example, meta.example, diffgenes.example)
+a <- DNBcompute(data.example, meta.example)
 b <- DNBfilter(a, ntop = 5)
 DNBplot(b, show = TRUE, save_pdf = FALSE)
 ```

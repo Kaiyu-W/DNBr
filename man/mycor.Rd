@@ -8,8 +8,10 @@ mycor(x, y = NULL, ...)
 }
 \arguments{
 \item{x}{x}
+
 \item{y}{y}
-\item{...}{parameters of function cor}
+
+\item{...}{other parameters of function cor}
 }
 \description{
 to ignore the warning and error of correlation computation

@@ -48,7 +48,7 @@ with the range between 0-1 for h and a number greater than 0 for k}
 
 \item{maxModule}{the max number of genes of the module meeting requirements}
 
-\item{quiet}{do not print output of process during calculation, default FALSE}
+\item{quiet}{do not print output of process during calculation (against verbose), default FALSE}
 
 \item{fastMode}{avoid using for loop, rathan apply-like function, default FALSE; if TRUE, quiet will be set as TRUE}
 
