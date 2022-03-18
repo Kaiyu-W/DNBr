@@ -15,7 +15,7 @@ or a matrix merging bulk GEMs from at least three different sample}
 
 \item{module_list}{a customized list of module gene}
 
-\item{meta_levels}{the order of meta group, default ordered by decreasing if be null}
+\item{meta_levels}{the order of meta group, default ordered by decreasing if NULL}
 }
 \value{
 S3:DNB_output
@@ -32,8 +32,8 @@ data(meta.example)
 data(module_list.example)
 b <- DNBcompute_custom(data.example, meta.example, module_list.example)
 b
-DNBplot(b, group = "D", ranking = 1, show = TRUE, save_pdf = FALSE)
-DNBplot(b, group = "D", ranking = 2, show = TRUE, save_pdf = FALSE)
+DNBplot(b, group = "USER_CUSTOMIZED", ranking = 1, show = TRUE, save_pdf = FALSE)
+DNBplot(b, group = "USER_CUSTOMIZED", ranking = 2, show = TRUE, save_pdf = FALSE)
 
 }
 \author{

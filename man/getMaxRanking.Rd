@@ -22,8 +22,7 @@ Get the max Ranking of exactly group in S3:DNB_output after function DNBfilter
 \examples{
 data(data.example)
 data(meta.example)
-data(diffgenes.example)
-a <- DNBcompute(data.example, meta.example, diffgenes.example)
+a <- DNBcompute(data.example, meta.example)
 b <- DNBfilter(a, ntop = 5)
 maxRank <- getMaxRanking(b, group = "C") # get 4 instead of 5
 DNBplot(b, ranking = maxRank, group = "C", show = TRUE, save_pdf = FALSE)

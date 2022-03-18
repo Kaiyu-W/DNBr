@@ -9,8 +9,6 @@
 #' @param meta_levels the order of meta-group in the plots, default levels(df_score$Names) if be null
 #' @param ... not use
 #'
-#' @export DNBplot.DNB_output
-#' @export
 #'
 DNBplot.DNB_output <- function(
     object,
@@ -48,8 +46,6 @@ DNBplot.DNB_output <- function(
 #' @param meta_levels the order of meta-group in the plots, default levels(df_score$Names) if be null
 #' @param ... not use
 #'
-#' @export DNBplot.data.frame
-#' @export
 #'
 DNBplot.data.frame <- function(
     object,

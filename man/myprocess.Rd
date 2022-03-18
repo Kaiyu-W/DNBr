@@ -16,7 +16,9 @@ myprocess(
   minModule,
   maxModule,
   quiet,
-  fastMode
+  fastMode,
+  cluster_fun,
+  cluster_args
 )
 }
 \arguments{
@@ -43,6 +45,10 @@ myprocess(
 \item{quiet}{same to DNBcompute}
 
 \item{fastMode}{same to DNBcompute}
+
+\item{cluster_fun}{same to DNBcompute}
+
+\item{cluster_args}{same to DNBcompute}
 }
 \description{
 the parameters come from inner DNBcompute

@@ -14,6 +14,8 @@
 #' @param maxModule same to DNBcompute
 #' @param quiet same to DNBcompute
 #' @param fastMode same to DNBcompute
+#' @param cluster_fun same to DNBcompute
+#' @param cluster_args same to DNBcompute
 #'
 #'
 myprocess <- function(
@@ -28,7 +30,9 @@ myprocess <- function(
     minModule,
     maxModule,
     quiet,
-    fastMode
+    fastMode,
+    cluster_fun,
+    cluster_args
 ) {
     mycat("\tProcess ...\n", quiet = quiet)
     data0 <- data
@@ -51,34 +55,45 @@ myprocess <- function(
     sle_tab <- data[, hig_gene, drop = F]
 
     # calculate distance (pcc)
-    cor_sle <- mycor(sle_tab)
-    diag(cor_sle) <- 0
+    cor_sle <- mycor(sle_tab, method = "pearson")
+    diag(cor_sle) <- 0 # useless
     dis_sle <- 1 - abs(cor_sle)
     dist <- as.dist(dis_sle)
-    dist[is.na(dist)] <- 1
+    dist[is.na(dist)] <- max(dist, na.rm = T) * 1.01
 
     # clustering
-    mycat("\tCluster...\n", "\tcutree method be ", cutree_method, " with cutoff value ", cutree_cutoff, "\n",
-        sep = "", quiet = quiet)
-
-    clu_sle <- hclust(dist)
-    if (cutree_method == 'h')
-        cut_sle <- cutree(clu_sle, h = cutree_cutoff) # cutoff
-    else if (cutree_method == 'k')
+    mycat("\tCluster...\n", quiet = quiet)
+    if (is.null(cluster_fun)) {
+        mycat("\tCluster method be stats::hclust and cutree\n", quiet = quiet)
+        mycat("\tcutree method be ", cutree_method, " with cutoff value ", cutree_cutoff, "\n", sep = "", quiet = quiet)
+        clu_sle <- stats::hclust(d = dist)
+        if (cutree_method == 'h')
+            cut_sle <- stats::cutree(clu_sle, h = cutree_cutoff) # cutoff
+        else if (cutree_method == 'k')
+            tryCatch(
+                cut_sle <- stats::cutree(clu_sle, k = cutree_cutoff),
+                error = function(x) stop("Not proper value of k!")
+            )
+    } else if (is.function(cluster_fun)) {
+        mycat("\tCluster method be user's customized function\n", quiet = quiet)
         tryCatch(
-            cut_sle <- cutree(clu_sle, k = cutree_cutoff),
-            error = function(x) stop("Not proper value of k!")
+            cut_sle <- do.call(what = cluster_fun, args = append(list(d = dist), cluster_args)),
+            error = function(x) 
+                stop("Unknown error! Please check the cluster_fun with name of first arg that be 'd', or cluster_args format!")
         )
-
+    } else {
+        stop("ERROR cluster_fun input!")
+    }
+    
     # calcute score
     size_up2_1 <- sapply(
         min(cut_sle):max(cut_sle),
         function(x)
-            length(which(cut_sle == x))
+            sum(cut_sle == x)
     ) > 1
     cut_sle_up2_1 <- (min(cut_sle):max(cut_sle))[size_up2_1]
     len_size_up2_1 <- length(cut_sle_up2_1)
-    mycat("\tFind total of ", len_size_up2_1, " scores! \n", quiet = quiet)
+    mycat("\tFind total of ", len_size_up2_1, " scores! \n", sep = "", quiet = quiet)
 
     # if no module fit, return null object
     if (len_size_up2_1 == 0) {
@@ -169,7 +184,8 @@ myprocess <- function(
         SCORE = score_mtx[6, ],
         rank = rank_order,
         rank_all = rep(0, length(rank_order)),
-        resource = rep(assay_name, length(rank_order)),
+        # resource = rep(assay_name, length(rank_order)),
+        resource = paste(assay_name, names(rank_order), sep = "_"),
         MODULEs = mynew_module(
             MODULE = Module_list,
             bestMODULE = as.logical(score_mtx[7, ])
@@ -275,7 +291,6 @@ DNBcomputeSingle_DNB_obj <- function(object, module_list) {
 #' @param module_list modules list
 #'
 #' @return score matrix
-#' @export
 #'
 singleDNB <- function(
     data,
@@ -337,8 +352,6 @@ singleDNB <- function(
 #' @param ... not use
 #'
 #' @return numeric value
-#' @export getMaxRanking.DNB_output
-#' @export
 #'
 getMaxRanking.DNB_output <- function(
     object,
@@ -350,10 +363,11 @@ getMaxRanking.DNB_output <- function(
         stop("group must has value!")
     } else {
         if (!group %in% all_group)
-            stop("ERROR group input! Should be one of meta_levels!")
+            if (group != "USER_CUSTOMIZED")
+                stop("ERROR group input! Should be one of meta_levels!")
     }
 
-    sum(object[[1]]@result@resource == group)
+    sum(grepl(paste0("^", group, "_"), object[[1]]@result@resource))
 }
 
 #' Get the whole result of slot pre_result or result from S4-DNB_obj and transfer that into a data.frame (matrix)
@@ -365,8 +379,6 @@ getMaxRanking.DNB_output <- function(
 #' @param ... not use
 #'
 #' @return data.frame
-#' @export resultAllExtract.DNB_output
-#' @export
 #'
 resultAllExtract.DNB_output <- function(
     object,
@@ -377,7 +389,7 @@ resultAllExtract.DNB_output <- function(
 ) {
     match.arg(arg = slot, choices = c("pre_result", "result"), several.ok = FALSE)
     if (slot == "pre_result" & mess)
-        message("Modules from pre_result may be of large amount, please use it carefully when printing directly!")
+        message("Modules from pre_result may be of a large amount, please use it carefully when printing directly!")
 
     result <- methods::slot(object[[group]], slot)
 
@@ -411,13 +423,11 @@ resultAllExtract.DNB_output <- function(
 #' Extract the score information from object (S3:DNB_output)
 #'
 #' @param object S3:DNB_output
-#' @param ranking the ranking of exactly module
-#' @param group which group to select module
+#' @param ranking the ranking of exactly module, default 1 if NULL
+#' @param group which group to select module, default random selected if NULL
 #' @param ... not use
 #'
 #' @return score data.frame
-#' @export ScoreExtract.DNB_output
-#' @export
 #'
 ScoreExtract.DNB_output <- function(
     object,
@@ -431,10 +441,11 @@ ScoreExtract.DNB_output <- function(
         group <- sample(all_group, 1)
     } else {
         if (!group %in% all_group)
-            stop("ERROR group input! Should be one of meta_levels!")
+            if (group != "USER_CUSTOMIZED")
+                stop("ERROR group input! Should be one of meta_levels!")
     }
 
-    max_lenModule <- sum(object[[1]]@result@resource == group)
+    max_lenModule <- getMaxRanking(object, group = group)
     if (is.null(ranking)) {
         ranking <- 1
     } else {

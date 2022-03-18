@@ -9,9 +9,9 @@ ScoreExtract(object, ranking = NULL, group = NULL, ...)
 \arguments{
 \item{object}{S3:DNB_output}
 
-\item{ranking}{the ranking of exactly module}
+\item{ranking}{the ranking of exactly module, default 1 if NULL}
 
-\item{group}{which group to select module}
+\item{group}{which group to select module, default random selected if NULL}
 
 \item{...}{for future use}
 }
@@ -24,8 +24,7 @@ Extract the score information from object (S3:DNB_output)
 \examples{
 data(data.example)
 data(meta.example)
-data(diffgenes.example)
-a <- DNBcompute(data.example, meta.example, diffgenes.example)
+a <- DNBcompute(data.example, meta.example)
 b <- DNBfilter(a, ntop = 5)
 df_score <- ScoreExtract(
     object = b,

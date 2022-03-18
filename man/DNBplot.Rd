@@ -18,17 +18,17 @@ DNBplot(
 \arguments{
 \item{object}{S3:DNB_output or df_score (output of ScoreExtract)}
 
-\item{ranking}{for DNB_output}
+\item{ranking}{for DNB_output, default 1 if NULL}
 
-\item{group}{for DNB_output}
+\item{group}{for DNB_output, default random selected if NULL}
 
-\item{show}{whether to show}
+\item{show}{whether to show, default TRUE}
 
-\item{save_pdf}{whether to save pdf file}
+\item{save_pdf}{whether to save pdf file, default FALSE}
 
-\item{file_prefix}{the file prefix if save_pdf}
+\item{file_prefix}{the file prefix if save_pdf, default NULL}
 
-\item{meta_levels}{the order of meta-group in the plots, default levels(df_score$Names) if be null}
+\item{meta_levels}{the order of meta-group in the plots, default levels(df_score$Names) if NULL}
 
 \item{...}{for future use}
 }
@@ -41,8 +41,7 @@ Visualize the DNB score information
 \examples{
 data(data.example)
 data(meta.example)
-data(diffgenes.example)
-a <- DNBcompute(data.example, meta.example, diffgenes.example)
+a <- DNBcompute(data.example, meta.example)
 b <- DNBfilter(a, ntop = 5)
 DNBplot(b, show = TRUE, save_pdf = FALSE)
 

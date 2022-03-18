@@ -4,7 +4,6 @@
 #' @param y y
 #' @param ... other parameters of function cor
 #'
-#' @export
 #'
 mycor <- function(x, y = NULL, ...) {
     if (is(x, "dgCMatrix"))
@@ -22,7 +21,6 @@ mycor <- function(x, y = NULL, ...) {
 #' @param ... parameters of function cat
 #' @param quiet not execute function cat
 #'
-#' @export
 #'
 mycat <- function(..., quiet = F) {
     if (!quiet) cat(...)

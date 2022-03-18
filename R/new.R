@@ -4,7 +4,6 @@
 #' @slot bestMODULE logical.
 #'
 #' @return S4 object, DNB_module
-#' @export
 #'
 mynew_module <- setClass(
     Class = "DNB_module",
@@ -29,7 +28,6 @@ mynew_module <- setClass(
 #' @slot rank_all numeric.
 #'
 #' @return S4 object, DNB_res
-#' @export
 #'
 mynew_res <- setClass(
     Class = "DNB_res",
@@ -55,7 +53,6 @@ mynew_res <- setClass(
 #' @slot result DNB_res.
 #'
 #' @return S4 object, DNB_obj
-#' @export
 #'
 mynew_dnb <- setClass(
     Class = "DNB_obj",
@@ -73,7 +70,6 @@ mynew_dnb <- setClass(
 #' @param ... parameters transmitting to function mynew_res() to generate S4-DNB_res after result has been computed
 #'
 #' @return S4 object, DNB_res
-#' @export
 #'
 mynew.DNB_res <- function(
     ntop = NULL,
@@ -107,7 +103,6 @@ mynew.DNB_res <- function(
 #' @param ... parameters transmitting to function mynew.DNB_res() to initialize or generate the slot pre_result (S4-DNB_res)
 #'
 #' @return S4 object, DNB_obj
-#' @export
 #'
 mynew.DNB_obj <- function(
     data,
@@ -127,7 +122,6 @@ mynew.DNB_obj <- function(
 #' @param list_obj if assigned, transfer this list into S3-DNB_output by changing its attribute
 #'
 #' @return S3-DNB_output
-#' @export
 #'
 mynew.DNB_output <- function(
     group,
@@ -149,7 +143,6 @@ mynew.DNB_output <- function(
 #'
 #' @param object DNB_obj
 #'
-#' @export
 #'
 setMethod(
     f = "show",
@@ -172,7 +165,6 @@ setMethod(
 #'
 #' @param object DNB_res
 #'
-#' @export
 #'
 setMethod(
     f = "show",
@@ -202,7 +194,6 @@ setMethod(
 #'
 #' @param object DNB_module
 #'
-#' @export
 #'
 setMethod(
     f = "show",
@@ -222,8 +213,6 @@ setMethod(
 #' @param x DNB_output
 #' @param ... not use
 #'
-#' @export print.DNB_output
-#' @export
 #'
 print.DNB_output <- function(x, ...) {
     group <- names(x)
@@ -241,7 +230,6 @@ print.DNB_output <- function(x, ...) {
 #' @param ... parameter: module_list, a list of modules, each with a gene vector
 #'
 #' @return S4:DNB_obj
-#' @export
 #'
 setGeneric(
     "DNBcomputeSingle",

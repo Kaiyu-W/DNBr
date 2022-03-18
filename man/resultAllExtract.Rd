@@ -26,8 +26,7 @@ Get the whole result of slot pre_result or result from S4-DNB_obj and transfer t
 \examples{
 data(data.example)
 data(meta.example)
-data(diffgenes.example)
-a <- DNBcompute(data.example, meta.example, diffgenes.example)
+a <- DNBcompute(data.example, meta.example)
 b <- DNBfilter(a, ntop = 5)
 df_score <- resultAllExtract(
     object = b,

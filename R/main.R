@@ -6,23 +6,38 @@
 #' @details (optional) write score results into DNB_score_matrix.txt
 #'
 #' @param data the gene expression matrix,
-#'      which can be a single-cell RNA-seq GEM with at least three group/clusters
-#'      or a matrix merging bulk GEMs from at least three different sample
+#'   which can be a single-cell RNA-seq GEM with at least three group/clusters
+#'   or a matrix merging bulk GEMs from at least three different sample
 #' @param meta a data.frame with rownames as cell-id as well as one column of group infomation
 #' @param diffgenes which genes we're interested in, or no special ones (all, default)
-#' @param allgenes the whole genes that ordered by expression, or the rownames of GEM (default)
-#' @param meta_levels the order of meta group, default ordered by decreasing if be null
+#' @param allgenes the whole genes that ordered in advance by expression, or the rownames of GEM (default)
+#' @param meta_levels the order of meta group, default ordered by decreasing if NULL
 #' @param high_method the method to select genes for the first step, by either high_cv (default) or top_gene
 #' @param high_cutoff the cutoff value corresponding to the high_method,
-#'      with the range between 0-1 for high_cv and 1-length(allgenes) for top_gene
-#' @param cutree_method the method to select tree(module) numbers, by either h (height, default) or k (number K)
+#' 
+#'  with the range between 0 - 1(all) for high_cv and 1 - #allgenes(all) for top_gene
+#' @param cutree_method the method to select numbers of tree (module) from hclust, 
+#' 
+#'  by either h (height, default) or k (number K)
 #' @param cutree_cutoff the cutoff value corresponding to the cutree_method,
-#'      with the range between 0-1 for h and a number greater than 0 for k
+#' 
+#'  with the range between 0-1 for h and a number greater than 0 for k
 #' @param minModule the min number of genes of the module meeting requirements
 #' @param maxModule the max number of genes of the module meeting requirements
 #' @param quiet do not print output of process during calculation (against verbose), default FALSE
 #' @param fastMode avoid using for loop, rathan apply-like function, default FALSE; if TRUE, quiet will be set as TRUE
 #' @param writefile write results of each group into DNB_Module_information_xx.txt with tab delimiter, default FALSE
+#' @param cluster_fun customized function that user design for clustering to find module, 
+#' 
+#'   default NULL (hierarchical by stats::hclust(d, method = "complete", members = NULL))
+#'   
+#'   This function should do function of clustering (e.g hclust + cutree), 
+#'   
+#'   with input that first arg "d" = distance matrix and output "named int vector". 
+#'   
+#'   If assigned, cutree_method and cutree_cutoff would be ignored
+#' @param cluster_args a list of extra arguments to the cluster_fun call. 
+#'   The names attribute of args gives the argument names. (same to base::do.call(args))
 #'
 #' @return S3:DNB_output
 #'
@@ -49,7 +64,9 @@ DNBcompute <- function(
     maxModule = 60,
     quiet = FALSE,
     fastMode = FALSE,
-    writefile = FALSE
+    writefile = FALSE,
+    cluster_fun = NULL,
+    cluster_args = NULL
 ) {
     match.arg(high_method)
     match.arg(cutree_method)
@@ -66,20 +83,22 @@ DNBcompute <- function(
         stop("ERROR data input! Should be matrix or data.frame!")
     if (is.null(allgenes))
         allgenes <- rownames(data)
-    if (is.null(diffgenes))
+    if (is.null(diffgenes)) {
         diffgenes <- allgenes
-    else
+    } else {
         if (!all(diffgenes %in% allgenes))
             stop("ERROR genes! Please check the allgenes or diffgenes input!")
+    }
     if (!is.data.frame(meta))
         meta <- as.data.frame(meta) # if meta is a vector with names
     if (!all(colnames(data) %in% rownames(meta)))
         stop("ERROR meta! Please check the rownames of meta df (or names of meta vector) or the colnames of data input!")
     if (ncol(meta) != 1)
         stop("ERROR meta! Meta df only has one column!")
-    if (!is.null(meta_levels))
+    if (!is.null(meta_levels)) {
         if (!all(meta_levels %in% meta[, 1]))
             stop("ERROR meta_levels! Should be equal to meta!")
+    }
 
     if (high_method == "high_cv") {
         if (high_cutoff > 1 || high_cutoff <= 0)
@@ -95,6 +114,19 @@ DNBcompute <- function(
         message("select tree by k! Carefully choose a proper value, or error may occur later.")
         if (cutree_cutoff < 1)
             stop("ERROR cutree_cutoff! Should be between greater than 1 when cutree_method is k!")
+    }
+
+    # check customized clustering function
+    if (is.null(cluster_fun)) {
+        message("Modules will be computed by hierarchical clustering!")
+    } else {
+        if (is.function(cluster_fun)) {
+            message("Modules will be computed by user customize function!")
+            if (!is.null(cluster_args) && !is.list(cluster_args))
+                stop("ERROR cluster_args! Should be a list or NULL!")
+        } else {
+            stop("ERROR cluster_fun! Should be function object!")
+        }
     }
 
     if (is.null(meta_levels)) {
@@ -130,7 +162,8 @@ DNBcompute <- function(
                     diffgenes = diffgenes, allgenes = allgenes,
                     high_method = high_method, high_cutoff = high_cutoff,
                     cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
-                    minModule = minModule, maxModule = maxModule, fastMode = TRUE
+                    minModule = minModule, maxModule = maxModule, fastMode = TRUE,
+                    cluster_fun = cluster_fun, cluster_args = cluster_args
                     )
                 iii <<- iii + 1
                 utils::setTxtProgressBar(pb, iii / length(group))
@@ -153,7 +186,8 @@ DNBcompute <- function(
                     diffgenes = diffgenes, allgenes = allgenes,
                     high_method = high_method, high_cutoff = high_cutoff,
                     cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
-                    minModule = minModule, maxModule = maxModule, fastMode = FALSE
+                    minModule = minModule, maxModule = maxModule, fastMode = FALSE,
+                    cluster_fun = cluster_fun, cluster_args = cluster_args
                     )
 
             cat(group_tmp, ' ends up successfully!\n', sep = '')
@@ -190,8 +224,7 @@ DNBcompute <- function(
 #'
 #' @examples data(data.example)
 #' @examples data(meta.example)
-#' @examples data(diffgenes.example)
-#' @examples a <- DNBcompute(data.example, meta.example, diffgenes.example)
+#' @examples a <- DNBcompute(data.example, meta.example)
 #' @examples b <- DNBfilter(a, ntop = 5)
 #' @examples b
 #'
@@ -229,6 +262,18 @@ DNBfilter <- function(
         }
     )
 
+    # check filtered Modules
+    tmp_Modules <- unique(unlist(lapply(module_list_tmp, function(x) if(is.null(x)) NULL else x$resource)))
+    N_Module <- sum(sapply(tmp_Modules, function(x) !is.null(x)))
+    if (N_Module == 0) {
+        message("No Module can fit the conditions at all!")
+        message("Please re-run the last step 'DNBcompute' after changing the args, such like minModule/maxModule.")
+        return(DNB_output)
+    } else {
+        cat("Find", N_Module, "Module(s) in total!\n", sep = " ")
+    }
+
+    # create module_list
     module_list <- list()
     length(module_list) <- 4
     names(module_list) <- c("module", "bestMODULE", "rank", "resource")
@@ -240,6 +285,11 @@ DNBfilter <- function(
             module_list[['resource']] <- append(module_list[['resource']], module_list_tmp[[i]]$resource)
         }
     }
+
+    # de-duplicate module_list, by the unique tag: resource
+    unique_index <- !duplicated(module_list[['resource']])
+    for (i in seq(module_list))
+        module_list[[i]] <- module_list[[i]][unique_index]
 
     # generate DNB_output@result
     DNB_output_new <- lapply(
@@ -261,8 +311,8 @@ DNBfilter <- function(
 #' @description Extract the score information from object (S3:DNB_output)
 #'
 #' @param object S3:DNB_output
-#' @param ranking the ranking of exactly module
-#' @param group which group to select module
+#' @param ranking the ranking of exactly module, default 1 if NULL
+#' @param group which group to select module, default random selected if NULL
 #' @param ... for future use
 #'
 #' @return data.frame
@@ -270,8 +320,7 @@ DNBfilter <- function(
 #'
 #' @examples data(data.example)
 #' @examples data(meta.example)
-#' @examples data(diffgenes.example)
-#' @examples a <- DNBcompute(data.example, meta.example, diffgenes.example)
+#' @examples a <- DNBcompute(data.example, meta.example)
 #' @examples b <- DNBfilter(a, ntop = 5)
 #' @examples df_score <- ScoreExtract(
 #' @examples     object = b,
@@ -306,8 +355,7 @@ ScoreExtract <- function(
 #'
 #' @examples data(data.example)
 #' @examples data(meta.example)
-#' @examples data(diffgenes.example)
-#' @examples a <- DNBcompute(data.example, meta.example, diffgenes.example)
+#' @examples a <- DNBcompute(data.example, meta.example)
 #' @examples b <- DNBfilter(a, ntop = 5)
 #' @examples df_score <- resultAllExtract(
 #' @examples     object = b,
@@ -341,8 +389,7 @@ resultAllExtract <- function(
 #'
 #' @examples data(data.example)
 #' @examples data(meta.example)
-#' @examples data(diffgenes.example)
-#' @examples a <- DNBcompute(data.example, meta.example, diffgenes.example)
+#' @examples a <- DNBcompute(data.example, meta.example)
 #' @examples b <- DNBfilter(a, ntop = 5)
 #' @examples maxRank <- getMaxRanking(b, group = "C") # get 4 instead of 5
 #' @examples DNBplot(b, ranking = maxRank, group = "C", show = TRUE, save_pdf = FALSE)
@@ -362,12 +409,12 @@ getMaxRanking <- function(
 #' @description Visualize the DNB score information
 #'
 #' @param object S3:DNB_output or df_score (output of ScoreExtract)
-#' @param ranking for DNB_output
-#' @param group for DNB_output
-#' @param show whether to show
-#' @param save_pdf whether to save pdf file
-#' @param file_prefix the file prefix if save_pdf
-#' @param meta_levels the order of meta-group in the plots, default levels(df_score$Names) if be null
+#' @param ranking for DNB_output, default 1 if NULL
+#' @param group for DNB_output, default random selected if NULL
+#' @param show whether to show, default TRUE
+#' @param save_pdf whether to save pdf file, default FALSE
+#' @param file_prefix the file prefix if save_pdf, default NULL
+#' @param meta_levels the order of meta-group in the plots, default levels(df_score$Names) if NULL
 #' @param ... for future use
 #'
 #' @return plot or pdf
@@ -375,8 +422,7 @@ getMaxRanking <- function(
 #'
 #' @examples data(data.example)
 #' @examples data(meta.example)
-#' @examples data(diffgenes.example)
-#' @examples a <- DNBcompute(data.example, meta.example, diffgenes.example)
+#' @examples a <- DNBcompute(data.example, meta.example)
 #' @examples b <- DNBfilter(a, ntop = 5)
 #' @examples DNBplot(b, show = TRUE, save_pdf = FALSE)
 #'
@@ -406,7 +452,7 @@ DNBplot <- function(
 #'      or a matrix merging bulk GEMs from at least three different sample
 #' @param meta a data.frame with rownames as cell-id as well as one column of group infomation
 #' @param module_list a customized list of module gene
-#' @param meta_levels the order of meta group, default ordered by decreasing if be null
+#' @param meta_levels the order of meta group, default ordered by decreasing if NULL
 #'
 #' @return S3:DNB_output
 #'
@@ -415,8 +461,8 @@ DNBplot <- function(
 #' @examples data(module_list.example)
 #' @examples b <- DNBcompute_custom(data.example, meta.example, module_list.example)
 #' @examples b
-#' @examples DNBplot(b, group = "D", ranking = 1, show = TRUE, save_pdf = FALSE)
-#' @examples DNBplot(b, group = "D", ranking = 2, show = TRUE, save_pdf = FALSE)
+#' @examples DNBplot(b, group = "USER_CUSTOMIZED", ranking = 1, show = TRUE, save_pdf = FALSE)
+#' @examples DNBplot(b, group = "USER_CUSTOMIZED", ranking = 2, show = TRUE, save_pdf = FALSE)
 #'
 #' @author Kaiyu Wang, in ChenLab of CAS, Shanghai, China
 #'
@@ -444,6 +490,7 @@ DNBcompute_custom <- function(
     if (!is.null(meta_levels))
         if (!all(meta_levels %in% meta[, 1]))
             stop("ERROR meta_levels! Should be equal to meta!")
+
     if (is.null(meta_levels)) {
         meta <- meta[order(meta[, 1], decreasing = T), , drop = F]
         meta_levels <- unique(meta[, 1])
@@ -460,6 +507,8 @@ DNBcompute_custom <- function(
     data <- data[, rownames(meta), drop = F]
 
     module_len <- length(module_list)
+    if (module_len == 0) 
+        stop("ERROR module_list! No elements!")
     DNB_output <- list()
     for (i in meta_levels) {
         data_tmp <- data[, rownames(meta)[meta[, 1] == i], drop = FALSE]
@@ -470,13 +519,16 @@ DNBcompute_custom <- function(
             pre_result = mynew.DNB_res(ntop = module_len), 
             result = mynew.DNB_res(ntop = module_len)
         )
-        DNB_output[[i]]@pre_result@resource <- rep(i, module_len)
+        # DNB_output[[i]]@pre_result@resource <- rep('USER_CUSTOMIZED', module_len)
+        DNB_output[[i]]@pre_result@resource <- paste('USER_CUSTOMIZED', 1:module_len, sep = "_")
         DNB_output[[i]]@pre_result@rank <- seq(module_list)
         DNB_output[[i]]@pre_result@MODULEs@MODULE <- module_list
         DNB_output[[i]]@pre_result@MODULEs@bestMODULE <- rep(TRUE, module_len)
     }
     DNB_output <- mynew.DNB_output(group = meta_levels, list_obj = DNB_output)
+
     DNB_output <- DNBfilter(DNB_output, ntop = module_len)
 
+    message("The resource is named with prefix 'USER_CUSTOMIZED', so use group = 'USER_CUSTOMIZED' when DNBplot")
     return(DNB_output)
 }

@@ -18,7 +18,9 @@ DNBcompute(
   maxModule = 60,
   quiet = FALSE,
   fastMode = FALSE,
-  writefile = FALSE
+  writefile = FALSE,
+  cluster_fun = NULL,
+  cluster_args = NULL
 )
 }
 \arguments{
@@ -30,19 +32,23 @@ or a matrix merging bulk GEMs from at least three different sample}
 
 \item{diffgenes}{which genes we're interested in, or no special ones (all, default)}
 
-\item{allgenes}{the whole genes that ordered by expression, or the rownames of GEM (default)}
+\item{allgenes}{the whole genes that ordered in advance by expression, or the rownames of GEM (default)}
 
-\item{meta_levels}{the order of meta group, default ordered by decreasing if be null}
+\item{meta_levels}{the order of meta group, default ordered by decreasing if NULL}
 
 \item{high_method}{the method to select genes for the first step, by either high_cv (default) or top_gene}
 
 \item{high_cutoff}{the cutoff value corresponding to the high_method,
-with the range between 0-1 for high_cv and 1-length(allgenes) for top_gene}
 
-\item{cutree_method}{the method to select tree(module) numbers, by either h (height, default) or k (number K)}
+ with the range between 0 - 1(all) for high_cv and 1 - #allgenes(all) for top_gene}
+
+\item{cutree_method}{the method to select numbers of tree (module) from hclust, 
+
+ by either h (height, default) or k (number K)}
 
 \item{cutree_cutoff}{the cutoff value corresponding to the cutree_method,
-with the range between 0-1 for h and a number greater than 0 for k}
+
+ with the range between 0-1 for h and a number greater than 0 for k}
 
 \item{minModule}{the min number of genes of the module meeting requirements}
 
@@ -53,6 +59,19 @@ with the range between 0-1 for h and a number greater than 0 for k}
 \item{fastMode}{avoid using for loop, rathan apply-like function, default FALSE; if TRUE, quiet will be set as TRUE}
 
 \item{writefile}{write results of each group into DNB_Module_information_xx.txt with tab delimiter, default FALSE}
+
+\item{cluster_fun}{customized function that user design for clustering to find module, 
+
+  default NULL (hierarchical by stats::hclust(d, method = "complete", members = NULL))
+  
+  This function should do function of clustering (e.g hclust + cutree), 
+  
+  with input that first arg "d" = distance matrix and output "named int vector". 
+  
+  If assigned, cutree_method and cutree_cutoff would be ignored}
+
+\item{cluster_args}{a list of extra arguments to the cluster_fun call. 
+The names attribute of args gives the argument names. (same to base::do.call(args))}
 }
 \value{
 S3:DNB_output

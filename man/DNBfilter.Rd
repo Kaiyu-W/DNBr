@@ -22,8 +22,7 @@ and apply these modules to all group to recompute DNB model
 \examples{
 data(data.example)
 data(meta.example)
-data(diffgenes.example)
-a <- DNBcompute(data.example, meta.example, diffgenes.example)
+a <- DNBcompute(data.example, meta.example)
 b <- DNBfilter(a, ntop = 5)
 b
 

@@ -9,9 +9,9 @@
 \arguments{
 \item{object}{S3:DNB_output}
 
-\item{ranking}{the ranking of exactly module}
+\item{ranking}{the ranking of exactly module, default 1 if NULL}
 
-\item{group}{which group to select module}
+\item{group}{which group to select module, default random selected if NULL}
 
 \item{...}{not use}
 }
