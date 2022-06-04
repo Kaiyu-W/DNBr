@@ -4,7 +4,7 @@
 \alias{print.DNB_output}
 \title{show DNB_output}
 \usage{
-print.DNB_output(x, ...)
+\method{print}{DNB_output}(x, ...)
 }
 \arguments{
 \item{x}{DNB_output}

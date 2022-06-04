@@ -212,7 +212,8 @@ setMethod(
 #'
 #' @param x DNB_output
 #' @param ... not use
-#'
+#' @method print DNB_output
+#' @export
 #'
 print.DNB_output <- function(x, ...) {
     group <- names(x)

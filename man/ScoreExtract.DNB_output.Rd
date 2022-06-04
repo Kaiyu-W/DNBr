@@ -2,9 +2,9 @@
 % Please edit documentation in R/process.R
 \name{ScoreExtract.DNB_output}
 \alias{ScoreExtract.DNB_output}
-\title{Extract the score information from object (S3:DNB_output)}
+\title{Extract the score information of @result from object (S3:DNB_output)}
 \usage{
-\method{ScoreExtract}{DNB_output}(object, ranking = NULL, group = NULL, ...)
+\method{ScoreExtract}{DNB_output}(object, ranking = NULL, group = NULL, resource = NULL, ...)
 }
 \arguments{
 \item{object}{S3:DNB_output}
@@ -13,11 +13,13 @@
 
 \item{group}{which group to select module, default random selected if NULL}
 
+\item{resource}{the actual module name, ranking & group will be ignored if use}
+
 \item{...}{not use}
 }
 \value{
 score data.frame
 }
 \description{
-Extract the score information from object (S3:DNB_output)
+Extract the score information of @result from object (S3:DNB_output)
 }

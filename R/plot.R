@@ -3,6 +3,7 @@
 #' @param object DNB_output
 #' @param ranking ranking
 #' @param group group
+#' @param resource resource, exclusive with ranking & group
 #' @param show whether to show
 #' @param save_pdf whether to save pdf file
 #' @param file_prefix the file prefix if save_pdf
@@ -14,6 +15,7 @@ DNBplot.DNB_output <- function(
     object,
     ranking = NULL,
     group = NULL,
+    resource = NULL,
     show = TRUE,
     save_pdf = FALSE,
     file_prefix = NULL,
@@ -23,7 +25,8 @@ DNBplot.DNB_output <- function(
     df_score <- ScoreExtract(
         object = object,
         ranking = ranking,
-        group = group
+        group = group,
+        resource = resource
     )
 
     plotScore(
@@ -40,6 +43,7 @@ DNBplot.DNB_output <- function(
 #' @param object data.frame of scores
 #' @param ranking not use
 #' @param group not use
+#' @param resource not use
 #' @param show whether to show
 #' @param save_pdf whether to save pdf file
 #' @param file_prefix the file prefix if save_pdf
@@ -51,6 +55,7 @@ DNBplot.data.frame <- function(
     object,
     ranking = NULL,
     group = NULL,
+    resource = NULL,
     show = TRUE,
     save_pdf = FALSE,
     file_prefix = NULL,
@@ -65,7 +70,6 @@ DNBplot.data.frame <- function(
         meta_levels = meta_levels
     )
 }
-
 
 #' @title plotScore
 #' @description main function for plot DNB, same to DNBplot

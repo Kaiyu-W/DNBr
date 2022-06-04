@@ -2,6 +2,23 @@
 #' 
 #' @description the parameters come from inner DNBcompute
 #'
+#' @param n sample size
+#' @param Sd standard deviation
+#' @param pcc_in pcc inside the group
+#' @param pcc_out pcc outside the group
+#'
+CI <- function(n, Sd, pcc_in, pcc_out) {
+    ifelse(
+        test = pcc_out == 0,
+        yes = 0,
+        no = sqrt(n) * Sd * pcc_in / pcc_out
+    )
+}
+
+#' Process function of each group data
+#' 
+#' @description the parameters come from inner DNBcompute
+#'
 #' @param data same to DNBcompute
 #' @param assay_name group (one of meta_levels)
 #' @param diffgenes same to DNBcompute
@@ -174,6 +191,10 @@ myprocess <- function(
     # rank_order <- -rank(rank_order3) + length(rank_order3) + 1
     rank_order <- rank(-1 * score_mtx[7, ] * score_mtx[6, ], ties.method = 'average')
 
+    # Module_resource <- rep(assay_name, length(rank_order))
+    Module_resource <- paste(assay_name, names(rank_order), sep = "_")
+    names(Module_list) <- Module_resource
+
     res_obj <- mynew.DNB_obj(
         data = data0,
         MEAN = score_mtx[1, ],
@@ -184,8 +205,7 @@ myprocess <- function(
         SCORE = score_mtx[6, ],
         rank = rank_order,
         rank_all = rep(0, length(rank_order)),
-        # resource = rep(assay_name, length(rank_order)),
-        resource = paste(assay_name, names(rank_order), sep = "_"),
+        resource = Module_resource,
         MODULEs = mynew_module(
             MODULE = Module_list,
             bestMODULE = as.logical(score_mtx[7, ])
@@ -238,12 +258,7 @@ compute_score_eachgroup <- function(
     Mean <- mean(mean_all[group_name])
     pcc_in <- mean(abs(as.dist(mycor(tab_in))), na.rm = T)
     pcc_out <- mean(abs(mycor(tab_in, tab_out)), na.rm = T)
-
-    score <- ifelse(
-        pcc_out == 0,
-        0,
-        sqrt(size) * Sd * pcc_in / pcc_out # score for ci
-    )
+    score <- CI(n = size, Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out)
 
     res <- c(Mean, Sd, cv, pcc_in, pcc_out, score, bestModule)
     return(res)
@@ -329,11 +344,7 @@ singleDNB <- function(
             Mean <- mean(mean_all[dnb_in])
             pcc_in <- mean(abs(as.dist(mycor(tab_in))), na.rm = T)
             pcc_out <- mean(abs(mycor(tab_in, tab_out)), na.rm = T)
-            score <- ifelse(
-                pcc_out == 0,
-                0,
-                sqrt(size) * Sd * pcc_in / pcc_out
-            )
+            score <- CI(n = size, Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out)
 
             c(Mean, Sd, cv, pcc_in, pcc_out, score)
         }
@@ -352,6 +363,8 @@ singleDNB <- function(
 #' @param ... not use
 #'
 #' @return numeric value
+#' @method getMaxRanking DNB_output
+#' @export
 #'
 getMaxRanking.DNB_output <- function(
     object,
@@ -364,10 +377,73 @@ getMaxRanking.DNB_output <- function(
     } else {
         if (!group %in% all_group)
             if (group != "USER_CUSTOMIZED")
-                stop("ERROR group input! Should be one of meta_levels!")
+                stop("ERROR group input! Should be one of meta_levels or USER_CUSTOMIZED!")
     }
 
     sum(grepl(paste0("^", group, "_"), object[[1]]@result@resource))
+}
+
+#' Get the gene list of exactly module in S3:DNB_output
+#'
+#' @param object S3:DNB_output
+#' @param resource that is, the actual module name
+#' @param ... not use
+#'
+#' @return vector of genes or character()
+#' @method getModuleGenes DNB_output
+#' @export
+#'
+getModuleGenes.DNB_output <- function(
+    object,
+    resource,
+    ...
+) {
+    meta_levels <- names(object)
+    for (i in meta_levels) {
+        data <- object[[i]]
+        genelist <- getModuleGenes(data, resource)
+
+        if (is.null(genelist))
+            next
+        else
+            return(genelist)
+    }
+
+    # otherwise
+    cat("Cannot find Module in either @result or @pre_result\n", sep = "")
+    return(character())
+}
+
+#' Get the gene list of exactly module in S4:DNB_obj
+#'
+#' @param object S4:DNB_obj
+#' @param resource that is, the actual module name
+#' @param ... not use
+#'
+#' @return vector of genes or NULL
+#' @method getModuleGenes DNB_obj
+#' @export
+#'
+getModuleGenes.DNB_obj <- function(
+    object,
+    resource,
+    ...
+) {
+    for (xslot in c("result", "pre_result")) {
+        data <- slot(object, xslot)
+        index <- which(data@resource == resource)
+        if (length(index) == 0) {
+            next
+        } else {
+            cat("Find Module in @", xslot, "\n", sep = "")
+            genelist <- data@MODULEs@MODULE[[index]]
+
+            return(genelist)
+        }
+    }
+
+    # otherwise
+    NULL
 }
 
 #' Get the whole result of slot pre_result or result from S4-DNB_obj and transfer that into a data.frame (matrix)
@@ -379,6 +455,8 @@ getMaxRanking.DNB_output <- function(
 #' @param ... not use
 #'
 #' @return data.frame
+#' @method resultAllExtract DNB_output
+#' @export
 #'
 resultAllExtract.DNB_output <- function(
     object,
@@ -420,57 +498,71 @@ resultAllExtract.DNB_output <- function(
     )
 }
 
-#' Extract the score information from object (S3:DNB_output)
+#' Extract the score information of @result from object (S3:DNB_output)
 #'
 #' @param object S3:DNB_output
 #' @param ranking the ranking of exactly module, default 1 if NULL
 #' @param group which group to select module, default random selected if NULL
+#' @param resource the actual module name, ranking & group will be ignored if use 
 #' @param ... not use
 #'
 #' @return score data.frame
+#' @method ScoreExtract DNB_output
+#' @export
 #'
 ScoreExtract.DNB_output <- function(
     object,
     ranking = NULL,
     group = NULL,
+    resource = NULL,
     ...
 ) {
     all_group <- names(object)
-    if (is.null(group)) {
-        message("Randomly select group...")
-        group <- sample(all_group, 1)
-    } else {
-        if (!group %in% all_group)
-            if (group != "USER_CUSTOMIZED")
-                stop("ERROR group input! Should be one of meta_levels!")
-    }
-
-    max_lenModule <- getMaxRanking(object, group = group)
-    if (is.null(ranking)) {
-        ranking <- 1
-    } else {
-        if (ranking < 1 | ranking > max_lenModule)
-            stop("ERROR ranking input! Should be between 1 and ", max_lenModule, "!")
-    }
 
     data <- object[[1]]@result
     if (length(data@rank) == 0)
         stop("No module found! Please check or run DNBfilter() !")
 
-    cat("Use group=", group, " and ranking=", ranking, "\n", sep = "")
+    if (is.null(resource)) {
+        if (is.null(group)) {
+            message("Randomly select group...")
+            group <- sample(all_group, 1)
+        } else {
+            if (!group %in% all_group)
+                if (group != "USER_CUSTOMIZED")
+                    stop("ERROR group input! Should be one of meta_levels or USER_CUSTOMIZED!")
+        }
 
-    index_group <- which(data@resource == group)
-    index_rank <- which(data@rank == ranking)
-    index <- intersect(index_group, index_rank)
-    if (length(index) == 0) {
-        rank_tmp <- object[[1]]@result@rank
-        rank_tmp[data@resource != group] <- NA
-        rank_tmp <- rank(-1 * rank_tmp, ties.method = "random")
-        index <- which(rank_tmp == ranking)
+        max_lenModule <- getMaxRanking(object, group = group)
+        if (is.null(ranking)) {
+            ranking <- 1
+        } else {
+            if (ranking < 1 | ranking > max_lenModule)
+                stop("ERROR ranking input! Should be between 1 and ", max_lenModule, "!")
+        }
+
+        cat("Use group=", group, " and ranking=", ranking, "\n", sep = "")
+
+        index_group <- which(grepl(paste0("^", group, "_"), data@resource))
+        index_rank <- which(data@rank == ranking)
+        index <- intersect(index_group, index_rank)
+        if (length(index) == 0) {
+            rank_tmp <- object[[1]]@result@rank
+            rank_tmp[data@resource != group] <- NA
+            rank_tmp <- rank(-1 * rank_tmp, ties.method = "random")
+            index <- which(rank_tmp == ranking)
+            if (length(index) == 0)
+                stop("Unknown ERROR!")
+        }
+
+        resource <- data@resource[index]
+        cat("Find resource=", resource, "\n", sep = "")
+    } else {
+        index <- which(data@resource == resource)
         if (length(index) == 0)
-            stop("Unknown ERROR!")
+            stop("ERROR resource input! ", resource, " cannot be found in object!")
     }
-
+    
     df_score <- data.frame(
         Names = factor(all_group, levels = all_group),
         SCORE = 0,
@@ -488,4 +580,191 @@ ScoreExtract.DNB_output <- function(
     }
 
     return(df_score)
+}
+
+#' Compute the Dynamic Network Biomarkers(DNB) model with customized Modules
+#'
+#' @param data the gene expression matrix,
+#'      which can be a single-cell RNA-seq GEM with at least three group/clusters
+#'      or a matrix merging bulk GEMs from at least three different sample
+#' @param module_list a customized list of module gene
+#' @param meta a data.frame with rownames as cell-id as well as one column of group infomation
+#' @param meta_levels the order of meta group, default ordered by decreasing if NULL
+#' @param ... not use
+#'
+#' @return S3:DNB_output
+#' @method DNBcompute_custom default
+#' @export
+#'
+DNBcompute_custom.default <- function(
+    data, 
+    module_list, 
+    meta, 
+    meta_levels = NULL,
+    ...
+) {
+    # if (!is.matrix(data) && !is.data.frame(data))
+    if (!is(data, "Matrix") && !is.matrix(data) && !is.data.frame(data))
+        stop("ERROR data input! Should be matrix or data.frame!")
+    if (!is.data.frame(meta))
+        meta <- as.data.frame(meta) # if meta is a vector with names
+    if (!is.list(module_list))
+        stop("ERROR module_list! Please input a list!")
+    if (!all(unique(unlist(module_list)) %in% rownames(data)))
+        stop("ERROR module_list! Please check the all names of module_list or the rownames of data input!")
+    if (!all(colnames(data) %in% rownames(meta)))
+        stop("ERROR meta! Please check the rownames of meta df (or names of meta vector) or the colnames of data input!")
+    if (ncol(meta) != 1)
+        stop("ERROR meta! Meta df only has one column!")
+    if (!is.null(meta_levels))
+        if (!all(meta_levels %in% meta[, 1]))
+            stop("ERROR meta_levels! Should be equal to meta!")
+
+    if (is.null(meta_levels)) {
+        meta <- meta[order(meta[, 1], decreasing = T), , drop = F]
+        meta_levels <- unique(meta[, 1])
+    } else {
+        meta_tmp <- meta[1, , drop = F]
+        rownames(meta_tmp) <- 'NA'
+        for (i in meta_levels) {
+            meta_tmp_tmp <- meta[meta[, 1] == i, , drop = F]
+            meta_tmp_tmp <- meta_tmp_tmp[order(rownames(meta_tmp_tmp), decreasing = T), , drop = F]
+            meta_tmp <- rbind(meta_tmp, meta_tmp_tmp)
+        }
+        meta <- meta_tmp[-1, , drop = F]
+    }
+    data <- data[, rownames(meta), drop = F]
+
+    module_len <- length(module_list)
+    if (module_len == 0) 
+        stop("ERROR module_list! No elements!")
+
+    if (is.null(names(module_list))) {
+        module_resource <- paste('USER_CUSTOMIZED', 1:module_len, sep = "_")
+        message("The resource is named with prefix 'USER_CUSTOMIZED', so use group = 'USER_CUSTOMIZED' when DNBplot")
+    } else {
+        module_resource <- names(module_list)
+    }
+
+    DNB_output <- list()
+    for (i in meta_levels) {
+        data_tmp <- data[, rownames(meta)[meta[, 1] == i], drop = FALSE]
+        data_tmp <- data.frame(data_tmp, check.names = FALSE)
+
+        DNB_output[[i]] <- mynew_dnb(
+            data = data_tmp, 
+            pre_result = mynew.DNB_res(ntop = module_len), 
+            result = mynew.DNB_res(ntop = module_len)
+        )
+        # DNB_output[[i]]@pre_result@resource <- rep('USER_CUSTOMIZED', module_len)
+        DNB_output[[i]]@pre_result@resource <- module_resource
+        DNB_output[[i]]@pre_result@rank <- seq(module_list)
+        DNB_output[[i]]@pre_result@MODULEs@MODULE <- module_list
+        DNB_output[[i]]@pre_result@MODULEs@bestMODULE <- rep(TRUE, module_len)
+    }
+    DNB_output <- mynew.DNB_output(group = meta_levels, list_obj = DNB_output)
+
+    DNB_output <- DNBfilter(DNB_output, ntop = module_len)
+
+    return(DNB_output)
+}
+
+#' Compute the Dynamic Network Biomarkers(DNB) model with customized Modules
+#'
+#' @param data existing S3:DNB_output object
+#' @param module_list a customized list of module gene
+#' @param meta not use
+#' @param meta_levels not use
+#' @param ... not use
+#'
+#' @return S3:DNB_output
+#' @method DNBcompute_custom DNB_output
+#' @export
+#'
+DNBcompute_custom.DNB_output <- function(
+    data,
+    module_list,
+    meta = NULL,
+    meta_levels = NULL,
+    ...
+) {
+    object <- data
+
+    # get meta levels
+    meta_levels <- names(object)
+
+    # get data matrix and meta
+    data_list <- lapply(object, function(x) x@data)
+    data <- data.frame()
+    meta_df <- data.frame()
+    for (i in seq(meta_levels)) {
+        data_i <- data_list[[i]]
+
+        # get data
+        data <- if (i == 1)
+            rbind(data, data_i)
+        else
+            cbind(data, data_i)
+
+        # get meta
+        meta_df_tmp <- data.frame(a = colnames(data_i))
+        colnames(meta_df_tmp) <- meta_levels[i]
+        meta_df <- if (i == 1)
+            meta_df_tmp
+        else
+            cbind(meta_df, meta_df_tmp)
+    }
+
+    # get meta
+    meta_tmp <- melt(meta_df, id.var = c())
+    meta <- data.frame(meta_tmp$variable, row.names = meta_tmp$value)
+
+    # compute DNB
+    object_new <- DNBcompute_custom(
+        data = data, 
+        meta = meta, 
+        module_list = module_list, 
+        meta_levels = meta_levels
+    )
+
+    # combine the new object into the old one
+    for (group in meta_levels) {
+        object[[group]]@result <- combine_slot(
+            x = object[[group]]@result, 
+            y = object_new[[group]]@result
+        )
+    }
+
+    # return merged DNB_output
+    return(object)
+}
+
+#' @title combine_slot
+#'
+#' @description Combine different slots together from same data for S4 object
+#'
+#' @param x slot 1
+#' @param y slot 2
+#'
+#' @return S4:combined_slot
+#'
+combine_slot <- function(x, y) {
+    slot_names <- slotNames(x)
+    slot_names2 <- slotNames(y)
+    if (!all(slot_names == slot_names2))
+        stop("ERROR slot input!")
+
+    for (i in slot_names) {
+        slot1 <- slot(x, i)
+        slot2 <- slot(y, i)
+
+        slot12 <- if (isS4(slot1))
+            combine_slot(slot1, slot2)
+        else
+            slot12 <- c(slot1, slot2)
+
+        slot(x, i) <- slot12
+    }
+
+    return(x)
 }

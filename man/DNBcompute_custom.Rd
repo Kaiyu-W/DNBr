@@ -4,18 +4,20 @@
 \alias{DNBcompute_custom}
 \title{DNBcompute_custom}
 \usage{
-DNBcompute_custom(data, meta, module_list, meta_levels = NULL)
+DNBcompute_custom(data, module_list, meta = NULL, meta_levels = NULL, ...)
 }
 \arguments{
-\item{data}{the gene expression matrix,
-which can be a single-cell RNA-seq GEM with at least three group/clusters
-or a matrix merging bulk GEMs from at least three different sample}
-
-\item{meta}{a data.frame with rownames as cell-id as well as one column of group infomation}
+\item{data}{input data, S4:DNB_output or gene expression matrix}
 
 \item{module_list}{a customized list of module gene}
 
-\item{meta_levels}{the order of meta group, default ordered by decreasing if NULL}
+\item{meta}{a data.frame with rownames as cell-id as well as one column of group infomation, 
+use if data is gene expression matrix}
+
+\item{meta_levels}{the order of meta group, default ordered by decreasing if NULL, 
+use if data is gene expression matrix}
+
+\item{...}{for future use}
 }
 \value{
 S3:DNB_output
@@ -24,16 +26,20 @@ S3:DNB_output
 Compute the Dynamic Network Biomarkers(DNB) model with customized Modules
 }
 \details{
+input data from existing DNB_output object, or new data and meta
+
+input customized modules from a list of gene set(s)
+
 return a S3 object includes several S4 objects
 }
 \examples{
 data(data.example)
 data(meta.example)
 data(module_list.example)
-b <- DNBcompute_custom(data.example, meta.example, module_list.example)
+b <- DNBcompute_custom(data.example, module_list.example, meta.example)
 b
 DNBplot(b, group = "USER_CUSTOMIZED", ranking = 1, show = TRUE, save_pdf = FALSE)
-DNBplot(b, group = "USER_CUSTOMIZED", ranking = 2, show = TRUE, save_pdf = FALSE)
+DNBplot(b, group = "USER_CUSTOMIZED", ranking = 1, show = TRUE, save_pdf = FALSE)
 
 }
 \author{

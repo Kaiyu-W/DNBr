@@ -252,6 +252,7 @@ DNBfilter <- function(
                 resource_tmp <- data@resource[index]
                 module_tmp <- data@MODULEs@MODULE[index]
                 best_tmp <- data@MODULEs@bestMODULE[index]
+                names(module_tmp) <- resource_tmp
                 list(
                     module = module_tmp,
                     bestMODULE = best_tmp,
@@ -313,6 +314,7 @@ DNBfilter <- function(
 #' @param object S3:DNB_output
 #' @param ranking the ranking of exactly module, default 1 if NULL
 #' @param group which group to select module, default random selected if NULL
+#' @param resource the actual module name, ranking & group will be ignored if use  
 #' @param ... for future use
 #'
 #' @return data.frame
@@ -335,6 +337,7 @@ ScoreExtract <- function(
     object,
     ranking = NULL,
     group = NULL,
+    resource = NULL,
     ...
 ) {
     UseMethod("ScoreExtract")
@@ -404,6 +407,34 @@ getMaxRanking <- function(
     UseMethod("getMaxRanking")
 }
 
+#' @title getModuleGenes
+#'
+#' @description Get the gene list of exactly module in S3:DNB_output
+#'
+#' @param object S3:DNB_output
+#' @param resource that is, the actual module name
+#' @param ... for future use
+#'
+#' @return vector of genes
+#' @export
+#'
+#' @examples data(data.example)
+#' @examples data(meta.example)
+#' @examples a <- DNBcompute(data.example, meta.example)
+#' @examples b <- DNBfilter(a, ntop = 5)
+#' @examples A_11_genelist <- getModuleGenes(b, resource = "A_11")
+#' @examples print(A_11_genelist)
+#'
+#' @author Kaiyu Wang, in ChenLab of CAS, Shanghai, China
+#'
+getModuleGenes <- function(
+    object,
+    resource,
+    ...
+) {
+    UseMethod("getModuleGenes")
+}
+
 #' @title DNBplot
 #'
 #' @description Visualize the DNB score information
@@ -411,6 +442,7 @@ getMaxRanking <- function(
 #' @param object S3:DNB_output or df_score (output of ScoreExtract)
 #' @param ranking for DNB_output, default 1 if NULL
 #' @param group for DNB_output, default random selected if NULL
+#' @param resource the actual module name, ranking & group will be ignored if use 
 #' @param show whether to show, default TRUE
 #' @param save_pdf whether to save pdf file, default FALSE
 #' @param file_prefix the file prefix if save_pdf, default NULL
@@ -432,6 +464,7 @@ DNBplot <- function(
     object, 
     ranking = NULL, 
     group = NULL, 
+    resource = NULL,
     show = TRUE, 
     save_pdf = FALSE, 
     file_prefix = NULL,
@@ -445,90 +478,38 @@ DNBplot <- function(
 #'
 #' @description Compute the Dynamic Network Biomarkers(DNB) model with customized Modules
 #'
+#' @details input data from existing DNB_output object, or new data and meta
+#' @details input customized modules from a list of gene set(s)
 #' @details return a S3 object includes several S4 objects
 #'
-#' @param data the gene expression matrix,
-#'      which can be a single-cell RNA-seq GEM with at least three group/clusters
-#'      or a matrix merging bulk GEMs from at least three different sample
-#' @param meta a data.frame with rownames as cell-id as well as one column of group infomation
+#' @param data input data, S4:DNB_output or gene expression matrix
 #' @param module_list a customized list of module gene
-#' @param meta_levels the order of meta group, default ordered by decreasing if NULL
-#'
+#' @param meta a data.frame with rownames as cell-id as well as one column of group infomation, 
+#'   use if data is gene expression matrix
+#' @param meta_levels the order of meta group, default ordered by decreasing if NULL, 
+#'   use if data is gene expression matrix
+#' @param ... for future use
+#' 
 #' @return S3:DNB_output
 #'
 #' @examples data(data.example)
 #' @examples data(meta.example)
 #' @examples data(module_list.example)
-#' @examples b <- DNBcompute_custom(data.example, meta.example, module_list.example)
+#' @examples b <- DNBcompute_custom(data.example, module_list.example, meta.example)
 #' @examples b
 #' @examples DNBplot(b, group = "USER_CUSTOMIZED", ranking = 1, show = TRUE, save_pdf = FALSE)
-#' @examples DNBplot(b, group = "USER_CUSTOMIZED", ranking = 2, show = TRUE, save_pdf = FALSE)
+#' @examples DNBplot(b, group = "USER_CUSTOMIZED", ranking = 1, show = TRUE, save_pdf = FALSE)
 #'
 #' @author Kaiyu Wang, in ChenLab of CAS, Shanghai, China
 #'
 #' @export
 #'
 DNBcompute_custom <- function(
-    data, 
-    meta, 
-    module_list, 
-    meta_levels = NULL
+    data,
+    module_list,
+    meta = NULL,
+    meta_levels = NULL,
+    ...
 ) {
-    # if (!is.matrix(data) && !is.data.frame(data))
-    if (!is(data, "Matrix") && !is.matrix(data) && !is.data.frame(data))
-        stop("ERROR data input! Should be matrix or data.frame!")
-    if (!is.data.frame(meta))
-        meta <- as.data.frame(meta) # if meta is a vector with names
-    if (!is.list(module_list))
-        stop("ERROR module_list! Please input a list!")
-    if (!all(unique(unlist(module_list)) %in% rownames(data)))
-        stop("ERROR module_list! Please check the all names of module_list or the rownames of data input!")
-    if (!all(colnames(data) %in% rownames(meta)))
-        stop("ERROR meta! Please check the rownames of meta df (or names of meta vector) or the colnames of data input!")
-    if (ncol(meta) != 1)
-        stop("ERROR meta! Meta df only has one column!")
-    if (!is.null(meta_levels))
-        if (!all(meta_levels %in% meta[, 1]))
-            stop("ERROR meta_levels! Should be equal to meta!")
-
-    if (is.null(meta_levels)) {
-        meta <- meta[order(meta[, 1], decreasing = T), , drop = F]
-        meta_levels <- unique(meta[, 1])
-    } else {
-        meta_tmp <- meta[1, , drop = F]
-        rownames(meta_tmp) <- 'NA'
-        for (i in meta_levels) {
-            meta_tmp_tmp <- meta[meta[, 1] == i, , drop = F]
-            meta_tmp_tmp <- meta_tmp_tmp[order(rownames(meta_tmp_tmp), decreasing = T), , drop = F]
-            meta_tmp <- rbind(meta_tmp, meta_tmp_tmp)
-        }
-        meta <- meta_tmp[-1, , drop = F]
-    }
-    data <- data[, rownames(meta), drop = F]
-
-    module_len <- length(module_list)
-    if (module_len == 0) 
-        stop("ERROR module_list! No elements!")
-    DNB_output <- list()
-    for (i in meta_levels) {
-        data_tmp <- data[, rownames(meta)[meta[, 1] == i], drop = FALSE]
-        data_tmp <- data.frame(data_tmp, check.names = FALSE)
-
-        DNB_output[[i]] <- mynew_dnb(
-            data = data_tmp, 
-            pre_result = mynew.DNB_res(ntop = module_len), 
-            result = mynew.DNB_res(ntop = module_len)
-        )
-        # DNB_output[[i]]@pre_result@resource <- rep('USER_CUSTOMIZED', module_len)
-        DNB_output[[i]]@pre_result@resource <- paste('USER_CUSTOMIZED', 1:module_len, sep = "_")
-        DNB_output[[i]]@pre_result@rank <- seq(module_list)
-        DNB_output[[i]]@pre_result@MODULEs@MODULE <- module_list
-        DNB_output[[i]]@pre_result@MODULEs@bestMODULE <- rep(TRUE, module_len)
-    }
-    DNB_output <- mynew.DNB_output(group = meta_levels, list_obj = DNB_output)
-
-    DNB_output <- DNBfilter(DNB_output, ntop = module_len)
-
-    message("The resource is named with prefix 'USER_CUSTOMIZED', so use group = 'USER_CUSTOMIZED' when DNBplot")
-    return(DNB_output)
+    UseMethod("DNBcompute_custom")
 }

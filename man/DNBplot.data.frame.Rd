@@ -8,6 +8,7 @@
   object,
   ranking = NULL,
   group = NULL,
+  resource = NULL,
   show = TRUE,
   save_pdf = FALSE,
   file_prefix = NULL,
@@ -21,6 +22,8 @@
 \item{ranking}{not use}
 
 \item{group}{not use}
+
+\item{resource}{not use}
 
 \item{show}{whether to show}
 

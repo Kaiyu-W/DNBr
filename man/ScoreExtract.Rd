@@ -4,7 +4,7 @@
 \alias{ScoreExtract}
 \title{ScoreExtract}
 \usage{
-ScoreExtract(object, ranking = NULL, group = NULL, ...)
+ScoreExtract(object, ranking = NULL, group = NULL, resource = NULL, ...)
 }
 \arguments{
 \item{object}{S3:DNB_output}
@@ -12,6 +12,8 @@ ScoreExtract(object, ranking = NULL, group = NULL, ...)
 \item{ranking}{the ranking of exactly module, default 1 if NULL}
 
 \item{group}{which group to select module, default random selected if NULL}
+
+\item{resource}{the actual module name, ranking & group will be ignored if use}
 
 \item{...}{for future use}
 }

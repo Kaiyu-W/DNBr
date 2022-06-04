@@ -8,6 +8,7 @@
   object,
   ranking = NULL,
   group = NULL,
+  resource = NULL,
   show = TRUE,
   save_pdf = FALSE,
   file_prefix = NULL,
@@ -21,6 +22,8 @@
 \item{ranking}{ranking}
 
 \item{group}{group}
+
+\item{resource}{resource, exclusive with ranking & group}
 
 \item{show}{whether to show}
 

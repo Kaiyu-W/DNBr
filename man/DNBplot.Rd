@@ -8,6 +8,7 @@ DNBplot(
   object,
   ranking = NULL,
   group = NULL,
+  resource = NULL,
   show = TRUE,
   save_pdf = FALSE,
   file_prefix = NULL,
@@ -21,6 +22,8 @@ DNBplot(
 \item{ranking}{for DNB_output, default 1 if NULL}
 
 \item{group}{for DNB_output, default random selected if NULL}
+
+\item{resource}{the actual module name, ranking & group will be ignored if use}
 
 \item{show}{whether to show, default TRUE}
 
