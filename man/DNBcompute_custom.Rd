@@ -4,7 +4,14 @@
 \alias{DNBcompute_custom}
 \title{DNBcompute_custom}
 \usage{
-DNBcompute_custom(data, module_list, meta = NULL, meta_levels = NULL, ...)
+DNBcompute_custom(
+  data,
+  module_list,
+  meta = NULL,
+  meta_levels = NULL,
+  quiet = FALSE,
+  ...
+)
 }
 \arguments{
 \item{data}{input data, S4:DNB_output or gene expression matrix}
@@ -16,6 +23,8 @@ use if data is gene expression matrix}
 
 \item{meta_levels}{the order of meta group, default ordered by decreasing if NULL, 
 use if data is gene expression matrix}
+
+\item{quiet}{do not message}
 
 \item{...}{for future use}
 }

@@ -4,12 +4,14 @@
 \alias{singleDNB}
 \title{Compute data for the modules list, and return score matrix}
 \usage{
-singleDNB(data, module_list)
+singleDNB(data, module_list, cor_vec = NULL)
 }
 \arguments{
 \item{data}{data}
 
 \item{module_list}{modules list}
+
+\item{cor_vec}{vector of correlation coefficient, when data has only one sample (col)}
 }
 \value{
 score matrix

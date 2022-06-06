@@ -218,6 +218,7 @@ DNBcompute <- function(
 #'
 #' @param DNB_output S3:DNB_output, from output of DNBcompute
 #' @param ntop the numbers of modules to filter
+#' @param quiet do not message
 #'
 #' @return S3:DNB_output
 #' @export
@@ -232,7 +233,8 @@ DNBcompute <- function(
 #'
 DNBfilter <- function(
     DNB_output,
-    ntop
+    ntop,
+    quiet = FALSE
 ) {
     if (!is(DNB_output, "DNB_output"))
         stop("ERROR input! Should be S3-DNB_output!")
@@ -271,7 +273,7 @@ DNBfilter <- function(
         message("Please re-run the last step 'DNBcompute' after changing the args, such like minModule/maxModule.")
         return(DNB_output)
     } else {
-        cat("Find", N_Module, "Module(s) in total!\n", sep = " ")
+        mycat("Find", N_Module, "Module(s) in total!\n", sep = " ", quiet = quiet)
     }
 
     # create module_list
@@ -314,7 +316,8 @@ DNBfilter <- function(
 #' @param object S3:DNB_output
 #' @param ranking the ranking of exactly module, default 1 if NULL
 #' @param group which group to select module, default random selected if NULL
-#' @param resource the actual module name, ranking & group will be ignored if use  
+#' @param resource the actual module name, ranking & group will be ignored if use
+#' @param quiet do not message
 #' @param ... for future use
 #'
 #' @return data.frame
@@ -338,6 +341,7 @@ ScoreExtract <- function(
     ranking = NULL,
     group = NULL,
     resource = NULL,
+    quiet = FALSE,
     ...
 ) {
     UseMethod("ScoreExtract")
@@ -488,6 +492,7 @@ DNBplot <- function(
 #'   use if data is gene expression matrix
 #' @param meta_levels the order of meta group, default ordered by decreasing if NULL, 
 #'   use if data is gene expression matrix
+#' @param quiet do not message
 #' @param ... for future use
 #' 
 #' @return S3:DNB_output
@@ -509,6 +514,7 @@ DNBcompute_custom <- function(
     module_list,
     meta = NULL,
     meta_levels = NULL,
+    quiet = FALSE,
     ...
 ) {
     UseMethod("DNBcompute_custom")

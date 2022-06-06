@@ -4,7 +4,14 @@
 \alias{DNBcompute_custom.default}
 \title{Compute the Dynamic Network Biomarkers(DNB) model with customized Modules}
 \usage{
-\method{DNBcompute_custom}{default}(data, module_list, meta, meta_levels = NULL, ...)
+\method{DNBcompute_custom}{default}(
+  data,
+  module_list,
+  meta,
+  meta_levels = NULL,
+  quiet = FALSE,
+  ...
+)
 }
 \arguments{
 \item{data}{the gene expression matrix,
@@ -16,6 +23,8 @@ or a matrix merging bulk GEMs from at least three different sample}
 \item{meta}{a data.frame with rownames as cell-id as well as one column of group infomation}
 
 \item{meta_levels}{the order of meta group, default ordered by decreasing if NULL}
+
+\item{quiet}{do not message}
 
 \item{...}{not use}
 }

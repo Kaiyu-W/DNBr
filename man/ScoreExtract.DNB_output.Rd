@@ -4,7 +4,14 @@
 \alias{ScoreExtract.DNB_output}
 \title{Extract the score information of @result from object (S3:DNB_output)}
 \usage{
-\method{ScoreExtract}{DNB_output}(object, ranking = NULL, group = NULL, resource = NULL, ...)
+\method{ScoreExtract}{DNB_output}(
+  object,
+  ranking = NULL,
+  group = NULL,
+  resource = NULL,
+  quiet = FALSE,
+  ...
+)
 }
 \arguments{
 \item{object}{S3:DNB_output}
@@ -14,6 +21,8 @@
 \item{group}{which group to select module, default random selected if NULL}
 
 \item{resource}{the actual module name, ranking & group will be ignored if use}
+
+\item{quiet}{do not message}
 
 \item{...}{not use}
 }

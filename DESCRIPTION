@@ -12,6 +12,7 @@ RoxygenNote: 7.1.1
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
 NeedsCompilation: no
-Imports: ggplot2, cowplot, methods, stats, utils, reshape2, Matrix
+Imports: ggplot2, cowplot, methods, stats, utils, reshape2, Matrix,
+        Hmisc
 Depends: R (>= 2.10)
-Packaged: 2022-06-04 04:45:38 UTC; PC
+Packaged: 2022-06-06 05:18:43 UTC; PC

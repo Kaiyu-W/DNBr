@@ -4,12 +4,14 @@
 \alias{DNBfilter}
 \title{DNBfilter}
 \usage{
-DNBfilter(DNB_output, ntop)
+DNBfilter(DNB_output, ntop, quiet = FALSE)
 }
 \arguments{
 \item{DNB_output}{S3:DNB_output, from output of DNBcompute}
 
 \item{ntop}{the numbers of modules to filter}
+
+\item{quiet}{do not message}
 }
 \value{
 S3:DNB_output

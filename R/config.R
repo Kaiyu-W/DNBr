@@ -16,6 +16,21 @@ mycor <- function(x, y = NULL, ...) {
     obj
 }
 
+#' Critical index
+#'
+#' @param n sample size
+#' @param Sd standard deviation
+#' @param pcc_in pcc inside the group
+#' @param pcc_out pcc outside the group
+#'
+CI <- function(n, Sd, pcc_in, pcc_out) {
+    ifelse(
+        test = pcc_out == 0,
+        yes = 0,
+        no = sqrt(n) * Sd * pcc_in / pcc_out
+    )
+}
+
 #' to print the process information
 #'
 #' @param ... parameters of function cat

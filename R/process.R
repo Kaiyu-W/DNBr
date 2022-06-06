@@ -2,23 +2,6 @@
 #' 
 #' @description the parameters come from inner DNBcompute
 #'
-#' @param n sample size
-#' @param Sd standard deviation
-#' @param pcc_in pcc inside the group
-#' @param pcc_out pcc outside the group
-#'
-CI <- function(n, Sd, pcc_in, pcc_out) {
-    ifelse(
-        test = pcc_out == 0,
-        yes = 0,
-        no = sqrt(n) * Sd * pcc_in / pcc_out
-    )
-}
-
-#' Process function of each group data
-#' 
-#' @description the parameters come from inner DNBcompute
-#'
 #' @param data same to DNBcompute
 #' @param assay_name group (one of meta_levels)
 #' @param diffgenes same to DNBcompute
@@ -304,54 +287,90 @@ DNBcomputeSingle_DNB_obj <- function(object, module_list) {
 #'
 #' @param data data
 #' @param module_list modules list
+#' @param cor_vec vector of correlation coefficient, when data has only one sample (col)
 #'
 #' @return score matrix
 #'
 singleDNB <- function(
     data,
-    module_list # module_list is a list
+    module_list, # module_list is a list
+    cor_vec = NULL
 ) {
     # prepare data
-    data_tmp <- t(data)
-    # data_tmp <- data.frame(data_tmp, check.names = FALSE)
+    n_sample <- ncol(data)
     all_genes <- rownames(data)
+    
+    if (n_sample == 1) {
+        if (is.null(cor_vec))
+            stop("cor_vec is required when data has only one sample!")
+        if (length(cor_vec) != length(all_genes))
+            stop("cor_vec should be the same length of genes from data!")
+    }
 
-    # base computation
-    sd_all <- apply(data_tmp, 2, sd)
-    mean_all <- apply(data_tmp, 2, mean)
-    cv_all <- sd_all / mean_all
+    # # define result
+    # score_mtx <- matrix(
+    #     0, nrow = 6, ncol = length(module_list),
+    #     dimnames = list(
+    #         c("Mean", "Sd", "cv", "pcc_in", "pcc_out", "score"),
+    #         names(module_list)
+    #     )
+    # )
+    score_row <- c("Mean", "Sd", "cv", "pcc_in", "pcc_out", "score")
+    score_col <- names(module_list)
+    
+    if (n_sample > 1) {
+        # base computation
+        data_tmp <- t(data)
+        sd_all <- apply(data_tmp, 2, sd)
+        mean_all <- apply(data_tmp, 2, mean)
+        cv_all <- sd_all / mean_all
 
-    # define result
-    score_mtx <- matrix(
-        0, nrow = 6, ncol = length(module_list),
-        dimnames = list(
-            c("Mean", "Sd", "cv", "pcc_in", "pcc_out", "score"),
-            names(module_list)
+        # compute scores
+        score_mtx <- sapply(
+            module_list,
+            function(module_genes) {
+                dnb_in <- module_genes
+                dnb_out <- all_genes[which(!all_genes %in% dnb_in)]
+                tab_in <- data_tmp[, dnb_in, drop = F]
+                tab_out <- data_tmp[, dnb_out, drop = F]
+                size <- length(dnb_in)
+
+                Mean <- mean(mean_all[dnb_in])
+                Sd <- mean(sd_all[dnb_in])
+                cv <- mean(cv_all[dnb_in], na.rm = T) # if mean is zero, cv is not defined, so do not consider this one.
+                pcc_in <- mean(abs(as.dist(mycor(tab_in))), na.rm = T)
+                pcc_out <- mean(abs(mycor(tab_in, tab_out)), na.rm = T)
+                score <- CI(n = size, Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out)
+
+                c(Mean, Sd, cv, pcc_in, pcc_out, score)
+            }
         )
-    )
+    } else {
+        # only one sample
+        data_tmp <- data[, 1, drop = T]
+        score_mtx <- sapply(
+            module_list,
+            function(module_genes) {
+                dnb_in <- module_genes
+                dnb_out <- all_genes[which(!all_genes %in% dnb_in)]
+                tab_in <- data_tmp[dnb_in]
+                tab_out <- data_tmp[dnb_out]
+                size <- length(dnb_in)
 
-    score_mtx_tmp <- sapply(
-        module_list,
-        function(module_genes) {
-            dnb_in <- module_genes
-            dnb_out <- all_genes[which(!all_genes %in% dnb_in)]
-            tab_in <- data_tmp[, dnb_in, drop =F]
-            tab_out <- data_tmp[, dnb_out, drop =F]
-            size <- length(dnb_in)
+                Mean <- mean(tab_in)
+                Sd <- sd(tab_in)
+                cv <- if (Mean == 0) NA else Sd / Mean
+                pcc_in <- mean(cor_vec[tab_in])
+                pcc_out <- mean(cor_vec[tab_out])
+                score <- CI(n = size, Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out)
 
-            cv <- mean(cv_all[dnb_in], na.rm = T) # if mean is zero, cv is not defined, so do not consider this one.
-            Sd <- mean(sd_all[dnb_in])
-            Mean <- mean(mean_all[dnb_in])
-            pcc_in <- mean(abs(as.dist(mycor(tab_in))), na.rm = T)
-            pcc_out <- mean(abs(mycor(tab_in, tab_out)), na.rm = T)
-            score <- CI(n = size, Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out)
+                c(Mean, Sd, cv, pcc_in, pcc_out, score)
+            }
+        )
+    }
 
-            c(Mean, Sd, cv, pcc_in, pcc_out, score)
-        }
-    )
-    colnames(score_mtx_tmp) <- colnames(score_mtx)
-    rownames(score_mtx_tmp) <- rownames(score_mtx)
-    score_mtx <- score_mtx_tmp
+    rownames(score_mtx) <- score_row
+    colnames(score_mtx) <- score_col
 
     return(score_mtx)
 }
@@ -503,7 +522,8 @@ resultAllExtract.DNB_output <- function(
 #' @param object S3:DNB_output
 #' @param ranking the ranking of exactly module, default 1 if NULL
 #' @param group which group to select module, default random selected if NULL
-#' @param resource the actual module name, ranking & group will be ignored if use 
+#' @param resource the actual module name, ranking & group will be ignored if use
+#' @param quiet do not message 
 #' @param ... not use
 #'
 #' @return score data.frame
@@ -515,6 +535,7 @@ ScoreExtract.DNB_output <- function(
     ranking = NULL,
     group = NULL,
     resource = NULL,
+    quiet = FALSE,
     ...
 ) {
     all_group <- names(object)
@@ -541,7 +562,7 @@ ScoreExtract.DNB_output <- function(
                 stop("ERROR ranking input! Should be between 1 and ", max_lenModule, "!")
         }
 
-        cat("Use group=", group, " and ranking=", ranking, "\n", sep = "")
+        mycat("Use group=", group, " and ranking=", ranking, "\n", sep = "", quiet = quiet)
 
         index_group <- which(grepl(paste0("^", group, "_"), data@resource))
         index_rank <- which(data@rank == ranking)
@@ -556,7 +577,7 @@ ScoreExtract.DNB_output <- function(
         }
 
         resource <- data@resource[index]
-        cat("Find resource=", resource, "\n", sep = "")
+        mycat("Find resource=", resource, "\n", sep = "", quiet = quiet)
     } else {
         index <- which(data@resource == resource)
         if (length(index) == 0)
@@ -590,6 +611,7 @@ ScoreExtract.DNB_output <- function(
 #' @param module_list a customized list of module gene
 #' @param meta a data.frame with rownames as cell-id as well as one column of group infomation
 #' @param meta_levels the order of meta group, default ordered by decreasing if NULL
+#' @param quiet do not message
 #' @param ... not use
 #'
 #' @return S3:DNB_output
@@ -601,6 +623,7 @@ DNBcompute_custom.default <- function(
     module_list, 
     meta, 
     meta_levels = NULL,
+    quiet = FALSE,
     ...
 ) {
     # if (!is.matrix(data) && !is.data.frame(data))
@@ -664,7 +687,7 @@ DNBcompute_custom.default <- function(
     }
     DNB_output <- mynew.DNB_output(group = meta_levels, list_obj = DNB_output)
 
-    DNB_output <- DNBfilter(DNB_output, ntop = module_len)
+    DNB_output <- DNBfilter(DNB_output, ntop = module_len, quiet = quiet)
 
     return(DNB_output)
 }
@@ -675,6 +698,7 @@ DNBcompute_custom.default <- function(
 #' @param module_list a customized list of module gene
 #' @param meta not use
 #' @param meta_levels not use
+#' @param quiet do not message
 #' @param ... not use
 #'
 #' @return S3:DNB_output
@@ -686,6 +710,7 @@ DNBcompute_custom.DNB_output <- function(
     module_list,
     meta = NULL,
     meta_levels = NULL,
+    quiet = FALSE,
     ...
 ) {
     object <- data
