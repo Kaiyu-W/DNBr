@@ -14,10 +14,10 @@ define S4 object of SSNnetwork
 \section{Slots}{
 
 \describe{
-\item{\code{module}}{matrix}
+\item{\code{ssn_network}}{list}
 
-\item{\code{network}}{list}
+\item{\code{local_module}}{matrix}
 
-\item{\code{scores}}{list}
+\item{\code{local_score}}{list}
 }}
 

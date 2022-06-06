@@ -14,8 +14,6 @@ define S4 object of SSNscore
 \section{Slots}{
 
 \describe{
-\item{\code{meta.data}}{data.frame}
-
 \item{\code{meta}}{character}
 
 \item{\code{K}}{numeric}
@@ -24,8 +22,8 @@ define S4 object of SSNscore
 
 \item{\code{name}}{character}
 
-\item{\code{module}}{list}
+\item{\code{local_module}}{list}
 
-\item{\code{score}}{data.frame}
+\item{\code{global_score}}{data.frame}
 }}
 

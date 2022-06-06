@@ -1,43 +1,57 @@
 #' define S4 object of SSNnetwork
 #'
-#' @slot module matrix
-#' @slot network list
-#' @slot scores list
+#' @slot ssn_network list
+#' @slot local_module matrix
+#' @slot local_score list
 #'
 #' @return S4 object, SSNnetwork
 #'
 mynew_network <- setClass(
     Class = "SSNnetwork",
     slots = list(
-        module = "matrix",
-        network = 'list',
-        scores = "list"
+        ssn_network = 'list',
+        local_module = "matrix",
+        local_score = "list"
     ),
     sealed = TRUE
 )
 
 #' define S4 object of SSNscore
 #'
-#' @slot meta.data data.frame
 #' @slot meta character
 #' @slot K numeric
 #' @slot freq numeric
 #' @slot name character
-#' @slot module list
-#' @slot score data.frame
+#' @slot local_module list
+#' @slot global_score data.frame
 #'
 #' @return S4 object, SSNscore
 #'
 mynew_ssnscore <- setClass(
     Class = "SSNscore",
     slots = list(
-        meta.data = "data.frame",
         meta = "character",
         K = "numeric",
         freq = "numeric",
         name = "character",
-        module = 'list',
-        score = "data.frame"
+        local_module = 'list',
+        global_score = "data.frame"
+    ),
+    sealed = TRUE
+)
+
+#' define S4 object of SSNscores
+#'
+#' @slot meta.data data.frame
+#' @slot scores list
+#'
+#' @return S4 object, SSNscores
+#'
+mynew_ssnscores <- setClass(
+    Class = "SSNscores",
+    slots = list(
+        meta.data = "data.frame",
+        scores = "list"
     ),
     sealed = TRUE
 )
@@ -53,7 +67,7 @@ mynew_ssn <- setClass(
     Class = "SSN",
     slots = list(
         network = "SSNnetwork",
-        score = 'SSNscore'
+        score = 'SSNscores'
     ),
     sealed = TRUE
 )
@@ -288,11 +302,11 @@ SSNcompute <- function(
         pb <- utils::txtProgressBar(style = 3)
     }
 
-    ssn_module <- matrix(
+    local_module <- matrix(
         0, ncol = ncol(ss_gex), nrow = nrow(ss_gex), 
         dimnames = dimnames(ss_gex)
     )
-    ssn_scores <- list()
+    local_scores <- list()
     ssn_network <- list()
     
     for (ss_name in colnames(ss_gex)) {
@@ -328,7 +342,7 @@ SSNcompute <- function(
 
         # save the result of single sample network
         if (save) {
-            file_tmp <- paste0("SSN_score_", ss_name, ".csv")
+            file_tmp <- paste0("SSN_local_score_", ss_name, ".csv")
             write.csv(
                 deltaNet_sig, 
                 file = file_tmp, 
@@ -342,17 +356,21 @@ SSNcompute <- function(
             deltaNet_sig$feature1, 
             deltaNet_sig$feature2
         ))
-        # ssn_module[module, ss_name] <- 1
+        # local_module[module, ss_name] <- 1
 
         # compute ssn score of genes from every sample based on DNB theory
-        blank_ssn <- c(na = 1, pcc_in = 0, pcc_out = 0, sED_in = 0, CI = 0)
+        blank_ssn <- c(
+            na = 1, # whether to pass
+            degree = 0, degree2 = 0, # numbers of first/second-order neighbors
+            pcc_in = 0, pcc_out = 0, sED_in = 0, CI = 0 # some scores
+        )
         blank_n2 <- c(pcc = 0, n = 0)
-        ssn_score <- sapply(
+        local_score <- sapply(
             module, 
-            function(neighbor_1) {
+            function(gene) {
                 # compute pcc_in (first-order neighbors)
                 pcc_1n <- PCCsum(
-                    feature = neighbor_1, 
+                    feature = gene, 
                     network = deltaNet_sig
                 )
                 nFON <- sum(pcc_1n$idx)
@@ -361,12 +379,13 @@ SSNcompute <- function(
                 pcc_in <- pcc_1n$pcc / nFON
 
                 # compute pcc_out (second-order neighbors)
-                neighbors_2 <- c(
+                neighbor_1 <- c(
                     deltaNet_sig$feature2[pcc_1n$idx1], 
                     deltaNet_sig$feature1[pcc_1n$idx2]
                 )
+                degree1 <- length(neighbor_1)
                 pcc_2n <- sapply(
-                    neighbors_2, 
+                    neighbor_1, 
                     function(neighbor_2) {
                         pccout <- PCCsum(
                             feature = neighbor_2, 
@@ -380,14 +399,15 @@ SSNcompute <- function(
                             c(pcc = pccout$pcc, n = nSON)
                     }
                 )
-                if (sum(pcc_2n['n',] == 0))
-                    # if pcc_2n_n = 0, that means second-order neighbors didn't exist
+                degree2 <- sum(pcc_2n['n',])
+                if (degree2 == 0)
+                    # that means second-order neighbors didn't exist
                     return(blank_ssn)
-                pcc_out <- sum(pcc_2n['pcc',]) / sum(pcc_2n['n',])
+                pcc_out <- sum(pcc_2n['pcc',]) / degree2
                 
                 # compute sED_in (first-order neighbors)
                 sED_in <- mean(sapply(
-                    c(neighbor_1, neighbors_2), 
+                    c(gene, neighbor_1), 
                     function(y) sED(
                         Xi = ss_gex[y, ss_name], 
                         Xref = ref_gex[y, ],
@@ -405,7 +425,9 @@ SSNcompute <- function(
 
                 # return
                 c(
-                    na = 0, # whether to pass 
+                    na = 0, # 0 means pass
+                    degree = degree1, 
+                    degree2 = degree2,
                     pcc_in = pcc_in, 
                     pcc_out = pcc_out, 
                     sED_in = sED_in, 
@@ -415,15 +437,15 @@ SSNcompute <- function(
         )
 
         # remove the ones who didn't fit requirement
-        ssn_score_sig <- ssn_score[-1, ssn_score['na', ] == 0, drop = FALSE]
+        local_score_sig <- local_score[-1, local_score['na', ] == 0, drop = FALSE]
         # generate the module matrix
-        module_sig <- colnames(ssn_score_sig)
-        ssn_module[module_sig, ss_name] <- 1
+        module_sig <- colnames(local_score_sig)
+        local_module[module_sig, ss_name] <- 1
 
         # order by CI
-        idx_dec <- order(ssn_score_sig['CI', ], decreasing = T)
-        ssn_scores[[ss_name]] <- t(
-            ssn_score_sig[, idx_dec]
+        idx_dec <- order(local_score_sig['CI', ], decreasing = T)
+        local_scores[[ss_name]] <- t(
+            local_score_sig[, idx_dec]
         )
 
         if (!quiet) {
@@ -435,11 +457,11 @@ SSNcompute <- function(
 
     ssn <- mynew_ssn(
         network = mynew_network(
-            module = ssn_module, 
-            network = ssn_network, 
-            scores = ssn_scores
+            ssn_network = ssn_network, 
+            local_module = local_module, 
+            local_score = local_scores
         ),
-        score = mynew_ssnscore()
+        score = mynew_ssnscores()
     )
     return(ssn)
 }
@@ -460,27 +482,27 @@ selectK <- function(object, K) {
         stop("Input object must be class of SSN! Please run SSNcompute() first!")
 
     # get data
-    ssn_list <- object@network@scores
-    ssn_module0 <- object@network@module
+    local_scores <- object@network@local_score
+    local_module0 <- object@network@local_module
 
     # define module matrix
-    ssn_module <- matrix(
-        0, ncol = ncol(ssn_module0), nrow = nrow(ssn_module0), 
-        dimnames = dimnames(ssn_module0)
+    local_module <- matrix(
+        0, ncol = ncol(local_module0), nrow = nrow(local_module0), 
+        dimnames = dimnames(local_module0)
     )
 
     # select genes by top K values of CI
-    for (ss_name in names(ssn_list)) {
-        ssn_x <- ssn_list[[ss_name]]
+    for (ss_name in names(local_scores)) {
+        ssn_x <- local_scores[[ss_name]]
         genes <- if (K <= nrow(ssn_x))
             rownames(ssn_x)[1:K]
         else
             rownames(ssn_x)
-        ssn_module[genes, ss_name] <- 1
+        local_module[genes, ss_name] <- 1
     }
 
     # return module
-    return(ssn_module)
+    return(local_module)
 }
 
 #' @title SSNscore_default
@@ -513,55 +535,61 @@ SSNscore_default <- function(
     if (!is(object, "SSN"))
         stop("Input object must be class of SSN! Please run SSNcompute() first!")
     match.arg(method)
+    method <- method[1]
     if (length(K) != 1)
         stop("K should be one integer! If a vector, pls use SSNscore().")
     if (freq > 1 | freq <= 0)
         stop("freq should be between 0 and 1!")
     
-    # get data
-    ssn_list <- object@network@scores
+    # get data from object
+    local_scores <- object@network@local_score
+    local_module0 <- object@network@local_module
     meta_data <- object@score@meta.data
-    
-    ssn_module0 <- object@network@module
-    score_score <- object@score@score
-    
-    k_vec <- object@score@K
-    freq_vec <- object@score@freq
-    meta_vec <- object@score@meta
-    name_vec <- object@score@name
+    ssn_scores <- object@score@scores
     n_meta <- ncol(meta_data)
 
-    # check meta
-    if (is.null(meta)) {
-        if (n_meta == 0)
+    if (n_meta == 0) {
+        if (is.null(meta))
             stop("meta is required! (Otherwise object@score@meta.data should exist!)")
-        meta <- meta_data[, 1, drop = FALSE]
-        meta_name <- colnames(meta)
-        warning("Use meta.data named ", meta_name, "!")
-    } else {
-        if (n_meta == 0){
+        else
             object@score@meta.data <- meta
+        meta_name <- colnames(meta)
+        ssn_score <- mynew_ssnscore()
+    } else {
+        # check meta
+        if (is.null(meta)) {
+            meta <- meta_data[, 1, drop = FALSE]
+            meta_name <- colnames(meta)
+            warning("Input meta has >1 columns! Use the first.")
         } else {
             if (!colnames(meta) %in% colnames(meta_data))
                 object@score@meta.data <- cbind(meta_data, meta)
         }
+        if (nrow(meta) == ncol(local_module0) & 
+            all(rownames(meta) %in% colnames(local_module0))
+        ) {
+            if (ncol(meta) == 1)
+                warning("Use meta.data named ", meta_name, "!")
+            meta <- meta[colnames(local_module0), 1, drop = FALSE]
+        } else {
+            stop("ERROR input of meta!")
+        }
+        meta_name <- colnames(meta)
+        ssn_score <- ssn_scores[[meta_name]]
     }
-    if (nrow(meta) == ncol(ssn_module0) & 
-        all(rownames(meta) %in% colnames(ssn_module0))
-    ) {
-        meta <- meta[colnames(ssn_module0), , drop = FALSE]
-    } else {
-        stop("ERROR input of meta!")
-    }
-
-    meta_name <- colnames(meta)
     tmp_name <- paste(meta_name, K, freq, sep = "_")
+    global_score <- ssn_score@global_score
+    k_vec <- ssn_score@K
+    freq_vec <- ssn_score@freq
+    meta_vec <- ssn_score@meta
+    name_vec <- ssn_score@name
+    
 
     # create module matrix (sample-gene) by K
-    module <- selectK(object, K = K)
+    local_module <- selectK(object, K = K)
 
     # create matrix of relation between meta and genes
-    metaModule <- apply(module, 1, function(x)
+    metaModule <- apply(local_module, 1, function(x)
         tapply(
             x, 
             meta[, 1], 
@@ -580,7 +608,7 @@ SSNscore_default <- function(
     
     # compute aggregated SSN score
     SSNscore_vec <- tapply(
-        ssn_list, 
+        local_scores, 
         meta, 
         function(ssn_meta) {
             ssn_name <- names(ssn_meta)[1]
@@ -605,18 +633,21 @@ SSNscore_default <- function(
     SSNscore_df <- as.data.frame(t(data.frame(K = SSNscore_vec)))
     rownames(SSNscore_df) <- tmp_name
     
-    # merge the output into raw object
+    # summary the output
     if (!tmp_name %in% name_vec) {
-        object@score@module[[tmp_name]] <- module
-        object@score@K <- c(k_vec, K)
-        object@score@freq <- c(freq_vec, freq)
-        object@score@meta <- c(meta_vec, meta_name)
-        object@score@name <- c(name_vec, tmp_name)
-        object@score@score <- if (length(name_vec) == 0) 
+        ssn_score@local_module[[tmp_name]] <- local_module
+        ssn_score@K <- c(k_vec, K)
+        ssn_score@freq <- c(freq_vec, freq)
+        ssn_score@meta <- c(meta_vec, meta_name)
+        ssn_score@name <- c(name_vec, tmp_name)
+        ssn_score@global_score <- if (length(name_vec) == 0) 
             SSNscore_df
         else
-            rbind(score_score, SSNscore_df)
+            rbind(global_score, SSNscore_df)
     }
+
+    # merge output into raw object
+    object@score@scores[[meta_name]] <- ssn_score
 
     # return
     return(object)
@@ -665,4 +696,36 @@ SSNscore <- function(
         }
         object
     }
+}
+
+#' @title getGlobalScore
+#'
+#' @description get exact GlobalScore matrix from SSN object
+#'
+#' @param object S4::SSN
+#' @param meta_name the name of meta.data (in colnames of object@score@meta.data)
+#' @param quiet do not warn when meta_name is NULL
+#'
+#' @return GlobalScore matrix
+#' @export
+#'
+getGlobalScore <- function(object, meta_name = NULL, quiet = FALSE) {
+    if (!is(object, "SSN"))
+        stop("Input object must be class of SSN! Please run SSNcompute() first!")
+
+    scores_list <- object@score@scores
+    if (length(scores_list) == 0)
+        stop("Please run SSNscore() first to compute the global score with meta information!")
+    if (!is.null(meta_name)) {
+        if (! meta_name %in% names(scores_list))
+            stop("No such meta-name in object@score@scores!")
+    } else {
+        meta_name <- names(scores_list)[1]
+        if (!quiet)
+            warning("Use meta_name=", meta_name, " for extraction.")
+    }
+    
+    GS_mtx <- scores_list[[meta_name]]@global_score
+
+    return(GS_mtx)
 }
