@@ -568,13 +568,14 @@ SSNscore_default <- function(
         if (nrow(meta) == ncol(local_module0) & 
             all(rownames(meta) %in% colnames(local_module0))
         ) {
-            if (ncol(meta) == 1)
-                warning("Use meta.data named ", meta_name, "!")
             meta <- meta[colnames(local_module0), 1, drop = FALSE]
+            meta_name <- colnames(meta)
+            if (ncol(meta) != 1)
+                warning("Use meta.data named ", meta_name, "!")
         } else {
             stop("ERROR input of meta!")
         }
-        meta_name <- colnames(meta)
+        
         ssn_score <- ssn_scores[[meta_name]]
     }
     tmp_name <- paste(meta_name, K, freq, sep = "_")
