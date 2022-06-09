@@ -4,7 +4,14 @@
 \alias{SSNscore_default}
 \title{SSNscore_default}
 \usage{
-SSNscore_default(object, K, freq = 0.5, meta = NULL, method = c("mean", "sum"))
+SSNscore_default(
+  object,
+  K,
+  freq = 0.5,
+  meta = NULL,
+  method = c("mean", "sum"),
+  mean_by = c("K", "genes")
+)
 }
 \arguments{
 \item{object}{S4::SSN}
@@ -21,7 +28,9 @@ a data.frame with 1-col, or NULL (default).
 If NULL, object@score@meta.data should have any column and the first will be used}
 
 \item{method}{method for aggregating the gene expression to calculate the score of each sample,
-by average (mean, default) or Summation (sum)}
+by average (mean, default) or summation (sum)}
+
+\item{mean_by}{if method == mean, where the total number is K (default) or the actual number of genes}
 }
 \value{
 S4::SSN object, result will be stored in object@score

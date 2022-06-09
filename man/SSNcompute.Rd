@@ -9,6 +9,7 @@ SSNcompute(
   ref_gex,
   delta_p = 0.1,
   ref_p = 0.05,
+  prior_network = NULL,
   nFirstOrderNeighbor = 3,
   nSecondOrderNeighbor = 1,
   sED_scale = TRUE,
@@ -24,6 +25,9 @@ SSNcompute(
 \item{delta_p}{p_value threshold for delta PCC test}
 
 \item{ref_p}{p_value threshold for correlation test, when building gene network from reference}
+
+\item{prior_network}{the prior network, such as experimental protein-protein interaction (PPI network)
+NULL (default) or a data.frame that has 2 columns of node couples}
 
 \item{nFirstOrderNeighbor}{the least number of first-order neighbor(s) for each gene, default 3}
 

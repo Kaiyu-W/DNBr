@@ -4,7 +4,12 @@
 \alias{refNetworkCreate}
 \title{refNetworkCreate}
 \usage{
-refNetworkCreate(ref_gex, method = "pearson", p_thre = 0.001)
+refNetworkCreate(
+  ref_gex,
+  method = "pearson",
+  p_thre = 0.001,
+  prior_network = NULL
+)
 }
 \arguments{
 \item{ref_gex}{gene expression matrix of reference}
@@ -12,6 +17,9 @@ refNetworkCreate(ref_gex, method = "pearson", p_thre = 0.001)
 \item{method}{correlation method, pearson (PCC, default) or spearman}
 
 \item{p_thre}{p_value threshold for correlation}
+
+\item{prior_network}{the prior network, such as experimental protein-protein interaction (PPI network)
+NULL (default) or a data.frame that has 2 columns of node couples}
 }
 \value{
 a list including matrix r, P and r_sig

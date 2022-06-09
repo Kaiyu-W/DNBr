@@ -148,16 +148,47 @@ NetworkCreate <- function(
 #' @param ref_gex gene expression matrix of reference
 #' @param method correlation method, pearson (PCC, default) or spearman
 #' @param p_thre p_value threshold for correlation 
+#' @param prior_network the prior network, such as experimental protein-protein interaction (PPI network)
+#'      NULL (default) or a data.frame that has 2 columns of node couples
 #'
 #' @return a list including matrix r, P and r_sig
 #' @export
 #'
-refNetworkCreate <- function(ref_gex, method = 'pearson', p_thre = 1e-3) {
+refNetworkCreate <- function(
+    ref_gex, 
+    method = 'pearson', 
+    p_thre = 1e-3, 
+    prior_network = NULL
+) {
     refNet <- NetworkCreate(ref_gex, method, p_require = TRUE)
 
     cor_mtx_sig <- refNet$r
-    # set not significant ones as NA 
+    # set not significant ones (by p_value) as NA 
     cor_mtx_sig[refNet$P > p_thre] <- NA
+
+    if (!is.null(prior_network)) {
+        # filter the edges by existing ones in prior_network
+        nodes1 <- prior_network[, 1, drop = T]
+        nodes2 <- prior_network[, 2, drop = T]
+        idx_fun <- function(x) {
+            idx <- which(colnames(cor_mtx_sig) == x)
+            ifelse(length(idx) == 0, NA, idx)
+        }
+        idx1 <- sapply(X = nodes1, FUN = idx_fun)
+        idx2 <- sapply(X = nodes2, FUN = idx_fun)
+        idx_na <- !is.na(idx1) & !is.na(idx2)
+        if (sum(idx_na) > 0) {
+            cor_mtx_sig2 <- cor_mtx_sig
+            cor_mtx_sig[] <- NA
+            for (i in which(idx_na)) {
+                cor_mtx_sig2[idx1[i], idx2[i]] <- cor_mtx_sig[idx1[i], idx2[i]]
+                cor_mtx_sig2[idx2[i], idx1[i]] <- cor_mtx_sig[idx2[i], idx1[i]]
+            }
+            cor_mtx_sig <- cor_mtx_sig2
+        } else {
+            stop("There are no edges from prior_network existing in reference network!")
+        }
+    }
 
     refNet[['r_sig']] <- cor_mtx_sig
 
@@ -229,6 +260,8 @@ PCCsum <- function(feature, network, ignore_idx = NULL) {
 #' @param ref_gex gene expression matrix of reference
 #' @param delta_p p_value threshold for delta PCC test
 #' @param ref_p p_value threshold for correlation test, when building gene network from reference
+#' @param prior_network the prior network, such as experimental protein-protein interaction (PPI network)
+#'      NULL (default) or a data.frame that has 2 columns of node couples
 #' @param nFirstOrderNeighbor the least number of first-order neighbor(s) for each gene, default 3
 #' @param nSecondOrderNeighbor the least number of second-order neighbor(s) for each gene, default 1
 #' @param sED_scale whether to scale sED by standard deviation
@@ -243,6 +276,7 @@ SSNcompute <- function(
     ref_gex, 
     delta_p = 0.1, 
     ref_p = 0.05, 
+    prior_network = NULL,
     nFirstOrderNeighbor = 3, 
     nSecondOrderNeighbor = 1, 
     sED_scale = TRUE,
@@ -256,6 +290,9 @@ SSNcompute <- function(
         setwd(save_dir)
         save <- TRUE
     }
+    if (!is.null(prior_network))
+        if (!is.data.frame(prior_network) || ncol(prior_network) != 2)
+            stop("A data.frame of 2 columns for prior_network is required!")
     if (is.data.frame(ref_gex))
         ref_gex <- as.matrix(ref_gex)
     if (is.data.frame(ss_gex))
@@ -286,7 +323,8 @@ SSNcompute <- function(
     refNet_list <- refNetworkCreate(
         ref_gex, 
         method = 'pearson', 
-        p_thre = ref_p
+        p_thre = ref_p,
+        prior_network = prior_network
     )
     refNet <- refNet_list[['r_sig']]
     refNet_df <- flattenCorrMatrix(refNet)
@@ -519,7 +557,8 @@ selectK <- function(object, K) {
 #'      a data.frame with 1-col, or NULL (default).
 #'      If NULL, object@score@meta.data should have any column and the first will be used 
 #' @param method method for aggregating the gene expression to calculate the score of each sample,
-#'      by average (mean, default) or Summation (sum)
+#'      by average (mean, default) or summation (sum)
+#' @param mean_by if method == mean, where the total number is K (default) or the actual number of genes
 #' 
 #' @return S4::SSN object, result will be stored in object@score
 #' @export
@@ -529,13 +568,16 @@ SSNscore_default <- function(
     K, 
     freq = 0.5, 
     meta = NULL, 
-    method = c("mean", "sum")
+    method = c("mean", "sum"),
+    mean_by = c("K", "genes")
 ) {
     # check input
     if (!is(object, "SSN"))
         stop("Input object must be class of SSN! Please run SSNcompute() first!")
     match.arg(method)
     method <- method[1]
+    match.arg(mean_by)
+    mean_by <- mean_by[1]
     if (length(K) != 1)
         stop("K should be one integer! If a vector, pls use SSNscore().")
     if (freq > 1 | freq <= 0)
@@ -623,10 +665,15 @@ SSNscore_default <- function(
                 function(ssn_df) {
                     genes_overlap <- intersect(rownames(ssn_df), genes)
                     s <- sum(ssn_df[genes_overlap, 'CI'])
-                    if (method == 'mean')
-                        s / ngenes
-                    else
+                    ifelse(
+                        method == 'mean',
+                        ifelse(
+                            mean_by == "genes",
+                            s / ngenes,
+                            s / K
+                        ),
                         s
+                    )
                 }
             ))
         }
@@ -669,6 +716,7 @@ SSNscore_default <- function(
 #'      If NULL, object@score@meta.data should have any column and the first will be used 
 #' @param method method for aggregating the gene expression to calculate the score of each sample,
 #'      by average (mean, default) or Summation (sum)
+#' @param mean_by if method == mean, where the total number is K (default) or the actual number of genes
 #' 
 #' @return S4::SSN object, result will be stored in object@score
 #' @export
@@ -678,7 +726,8 @@ SSNscore <- function(
     K, 
     freq = 0.5, 
     meta = NULL, 
-    method = c("mean", "sum")
+    method = c("mean", "sum"),
+    mean_by = c("K", "genes")
 ) {
     fun <- function(object, Kx)
         SSNscore_default(
@@ -686,7 +735,8 @@ SSNscore <- function(
             K = Kx, 
             freq = freq, 
             meta = meta, 
-            method = method
+            method = method,
+            mean_by = mean_by
         )
 
     if (length(K) == 1) {
