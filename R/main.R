@@ -246,7 +246,8 @@ DNBfilter <- function(
         function(x) {
             data <- x@pre_result
             rank_tmp <- data@rank
-            index <- which(rank_tmp <= ntop)
+            bestMODULE_tmp <- data@MODULEs@bestMODULE
+            index <- which(rank_tmp <= ntop & bestMODULE_tmp)
             if (length(index) == 0) {
                 NULL
             } else {
