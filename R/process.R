@@ -575,13 +575,22 @@ ScoreExtract.DNB_output <- function(
             if (length(index) == 0)
                 stop("Unknown ERROR!")
         }
+        if (length(index) > 1) {
+            warning(
+                "Find multiple resource with equal ranking:",
+                paste(data@resource[index], collapse = ", "),
+                "\nRandomly select one..."
+            )
+            index <- sample(index, 1)
+        }
 
         resource <- data@resource[index]
         mycat("Find resource=", resource, "\n", sep = "", quiet = quiet)
     } else {
         index <- which(data@resource == resource)
-        if (length(index) == 0)
+        if (length(index) == 0) {
             stop("ERROR resource input! ", resource, " cannot be found in object!")
+        }
     }
     
     df_score <- data.frame(
