@@ -68,12 +68,8 @@ DNBcompute <- function(
     cluster_fun = NULL,
     cluster_args = NULL
 ) {
-    match.arg(high_method)
-    match.arg(cutree_method)
-    if (length(high_method != 1))
-        high_method <- high_method[1]
-    if (length(cutree_method != 1))
-        cutree_method <- cutree_method[1]
+    high_method <- match.arg(high_method)
+    cutree_method <- match.arg(cutree_method)
     if (fastMode & !quiet)
         message("quiet will be set as TRUE if fastMode set as TRUE!")
     
