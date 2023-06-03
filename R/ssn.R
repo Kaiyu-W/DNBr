@@ -115,7 +115,7 @@ NetworkCreate <- function(
     method = c('pearson','spearman'), 
     p_require = FALSE
 ) {
-    match.arg(method)
+    method <- match.arg(method)
     if (!is(data, "Matrix") && !is.matrix(data) && !is.data.frame(data))
         stop("ERROR data input! Should be matrix or data.frame!")
 
@@ -574,10 +574,8 @@ SSNscore_default <- function(
     # check input
     if (!is(object, "SSN"))
         stop("Input object must be class of SSN! Please run SSNcompute() first!")
-    match.arg(method)
-    method <- method[1]
-    match.arg(mean_by)
-    mean_by <- mean_by[1]
+    method <- match.arg(method)
+    mean_by <- match.arg(mean_by)
     if (length(K) != 1)
         stop("K should be one integer! If a vector, pls use SSNscore().")
     if (freq > 1 | freq <= 0)
