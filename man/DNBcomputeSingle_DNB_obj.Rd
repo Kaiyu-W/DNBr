@@ -4,12 +4,21 @@
 \alias{DNBcomputeSingle_DNB_obj}
 \title{DNBcomputeSingle for DNB_obj}
 \usage{
-DNBcomputeSingle_DNB_obj(object, module_list)
+DNBcomputeSingle_DNB_obj(
+  object,
+  module_list,
+  force_allgene = FALSE,
+  size_effect = TRUE
+)
 }
 \arguments{
 \item{object}{S4:DNB_obj}
 
 \item{module_list}{a list of module genes}
+
+\item{force_allgene}{whether force to use all genes from data, default FALSE (use DNB_obj@used_gene)}
+
+\item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
 }
 \value{
 DNB_obj

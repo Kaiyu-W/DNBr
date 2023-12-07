@@ -49,6 +49,7 @@ mynew_res <- setClass(
 #' define S4 object of DNB_obj, includes the raw data(matrix or data.frame), the pre-results (S4-DNB_res) and the results of filtered (ntop max) modules (S4-DNB_res)
 #'
 #' @slot data ANY.
+#' @slot used_gene ANY.
 #' @slot pre_result DNB_res.
 #' @slot result DNB_res.
 #'
@@ -58,9 +59,10 @@ mynew_dnb <- setClass(
     Class = "DNB_obj",
     slots = list(
         data = 'ANY',
+        used_gene = 'ANY',
         pre_result = 'DNB_res',
         result = 'DNB_res'
-        ),
+    ),
     sealed = TRUE
 )
 
@@ -100,6 +102,7 @@ mynew.DNB_res <- function(
 #'
 #' @param data raw data to compute DNB (matrix or data.frame)
 #' @param ntop parameters for slot result, the number of top rank for modules
+#' @param used_gene gene list of data to compute DNB, default all genes from data
 #' @param ... parameters transmitting to function mynew.DNB_res() to initialize or generate the slot pre_result (S4-DNB_res)
 #'
 #' @return S4 object, DNB_obj
@@ -107,10 +110,12 @@ mynew.DNB_res <- function(
 mynew.DNB_obj <- function(
     data,
     ntop = NULL,
+    used_gene = NULL,
     ...
 ) {
     mynew_dnb(
         data = data,
+        used_gene = if (is.null(used_gene)) rownames(data) else used_gene,
         pre_result = mynew.DNB_res(...),
         result = mynew.DNB_res(ntop = ntop)
     )
@@ -154,6 +159,7 @@ setMethod(
         len_res <- length(object@result@rank)
         cat("A S4 object (DNB_obj), includes:\n",
             "...@data, a ", data_class, " with ", data_dim[1], " Rows and ", data_dim[2], " Cols\n",
+            "...@used_gene, a list of used genes\n",
             "...@pre_result, a S4 object (DNB_res), with ", len_preres, " Modules in total\n",
             "...@result, a S4 object (DNB_res), with ", len_res, " Modules in total\n",
             sep = ""
@@ -228,7 +234,7 @@ print.DNB_output <- function(x, ...) {
 #' Compute data of single group for all modules from pre-result, and add the result into slot result
 #'
 #' @param object S4:DNB_obj
-#' @param ... parameter: module_list, a list of modules, each with a gene vector
+#' @param ... parameter: module_list, a list of modules, each with a gene vector, and others
 #'
 #' @return S4:DNB_obj
 #'
@@ -242,10 +248,12 @@ setGeneric(
 #'
 #' @param object S4:DNB_obj
 #' @param module_list a list of module genes
+#' @param force_allgene whether force to use all genes from data, default FALSE (use DNB_obj@used_gene)
+#' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #'
 setMethod(
     "DNBcomputeSingle", signature(object = "DNB_obj"),
-    function(object, module_list) {
-        DNBcomputeSingle_DNB_obj(object = object, module_list = module_list)
+    function(object, module_list, force_allgene = FALSE, size_effect = TRUE) {
+        DNBcomputeSingle_DNB_obj(object = object, module_list = module_list, force_allgene = force_allgene, size_effect = size_effect)
     }
 )

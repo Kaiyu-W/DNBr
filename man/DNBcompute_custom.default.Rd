@@ -9,6 +9,8 @@
   module_list,
   meta,
   meta_levels = NULL,
+  force_allgene = TRUE,
+  size_effect = TRUE,
   quiet = FALSE,
   ...
 )
@@ -23,6 +25,10 @@ or a matrix merging bulk GEMs from at least three different sample}
 \item{meta}{a data.frame with rownames as cell-id as well as one column of group infomation}
 
 \item{meta_levels}{the order of meta group, default ordered by decreasing if NULL}
+
+\item{force_allgene}{not use}
+
+\item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
 
 \item{quiet}{do not message}
 

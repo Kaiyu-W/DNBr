@@ -16,6 +16,8 @@ define S4 object of DNB_obj, includes the raw data(matrix or data.frame), the pr
 \describe{
 \item{\code{data}}{ANY.}
 
+\item{\code{used_gene}}{ANY.}
+
 \item{\code{pre_result}}{DNB_res.}
 
 \item{\code{result}}{DNB_res.}

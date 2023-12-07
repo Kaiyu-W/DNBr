@@ -16,6 +16,7 @@
 #' @param fastMode same to DNBcompute
 #' @param cluster_fun same to DNBcompute
 #' @param cluster_args same to DNBcompute
+#' @param size_effect same to DNBcompute
 #'
 #'
 myprocess <- function(
@@ -32,7 +33,8 @@ myprocess <- function(
     quiet,
     fastMode,
     cluster_fun,
-    cluster_args
+    cluster_args,
+    size_effect
 ) {
     mycat("\tProcess ...\n", quiet = quiet)
     data0 <- data
@@ -43,12 +45,16 @@ myprocess <- function(
     cv_all <- sd_all / mean_all
 
     # select genes
-    if (high_method == 'top_gene') {
-        hig_gene <- allgenes[1:high_cutoff]
-    } else if (high_method == 'high_cv') {
-        hig_num <- ceiling(length(cv_all) * high_cutoff) #cv cutoff
-        cv_rank <- sort(cv_all, decreasing = T, na.last = T)[1:hig_num]
-        hig_gene <- names(cv_rank)
+    if (high_cutoff == -1) {
+        hig_gene <- allgenes
+    } else {
+        if (high_method == 'top_gene') {
+            hig_gene <- allgenes[1:high_cutoff]
+        } else if (high_method == 'high_cv') {
+            hig_num <- ceiling(length(cv_all) * high_cutoff) #cv cutoff
+            cv_rank <- sort(cv_all, decreasing = T, na.last = T)[1:hig_num]
+            hig_gene <- names(cv_rank)
+        }
     }
     if (length(hig_gene) <= 1)
         stop("ERROR number of high gene! Only find one high gene or less!")
@@ -65,7 +71,7 @@ myprocess <- function(
     mycat("\tCluster...\n", quiet = quiet)
     if (is.null(cluster_fun)) {
         mycat("\tCluster method be stats::hclust and cutree\n", quiet = quiet)
-        mycat("\tcutree method be ", cutree_method, " with cutoff value ", cutree_cutoff, "\n", sep = "", quiet = quiet)
+        mycat("\tCutree method be ", cutree_method, " with cutoff value ", cutree_cutoff, "\n", sep = "", quiet = quiet)
         clu_sle <- stats::hclust(d = dist)
         if (cutree_method == 'h')
             cut_sle <- stats::cutree(clu_sle, h = cutree_cutoff) # cutoff
@@ -99,6 +105,7 @@ myprocess <- function(
     if (len_size_up2_1 == 0) {
         res_obj <- mynew.DNB_obj(
             data = data0,
+            used_gene = hig_gene,
             ntop = 0
         )
         return(res_obj)
@@ -120,7 +127,8 @@ myprocess <- function(
                 compute_score_eachgroup(
                     cut_sle = cut_sle, group = i, diffgenes = diffgenes, hig_gene = hig_gene,
                     sle_tab = sle_tab, cv_all = cv_all, sd_all = sd_all, mean_all = mean_all,
-                    minModule = minModule, maxModule = maxModule)
+                    minModule = minModule, maxModule = maxModule, size_effect = size_effect
+                )
             }
         )
         colnames(score_mtx_tmp) <- colnames(score_mtx)
@@ -135,7 +143,8 @@ myprocess <- function(
             score_mtx[, count] <- compute_score_eachgroup(
                 cut_sle = cut_sle, group = i, diffgenes = diffgenes, hig_gene = hig_gene,
                 sle_tab = sle_tab, cv_all = cv_all, sd_all = sd_all, mean_all = mean_all,
-                minModule = minModule, maxModule = maxModule)
+                minModule = minModule, maxModule = maxModule, size_effect = size_effect
+            )
         }
     }
 
@@ -180,6 +189,7 @@ myprocess <- function(
 
     res_obj <- mynew.DNB_obj(
         data = data0,
+        used_gene = hig_gene,
         MEAN = score_mtx[1, ],
         SD = score_mtx[2, ],
         CV = score_mtx[3, ],
@@ -192,7 +202,7 @@ myprocess <- function(
         MODULEs = mynew_module(
             MODULE = Module_list,
             bestMODULE = as.logical(score_mtx[7, ])
-            )
+        )
     )
     return(res_obj)
 }
@@ -211,6 +221,7 @@ myprocess <- function(
 #' @param mean_all all mean values
 #' @param minModule same to DNBcompute
 #' @param maxModule same to DNBcompute
+#' @param size_effect same to DNBcompute
 #'
 compute_score_eachgroup <- function(
     cut_sle,
@@ -222,13 +233,14 @@ compute_score_eachgroup <- function(
     sd_all,
     mean_all,
     minModule,
-    maxModule
+    maxModule,
+    size_effect
 ) {
     group_name <- names(which(cut_sle == group))
     group_out <- setdiff(hig_gene, group_name)
     LenMODULE <- length(group_name)
     Lendiff <- length(intersect(diffgenes, group_name))
-    bestModule <- if (Lendiff > 0 && LenMODULE > minModule && LenMODULE < maxModule) TRUE else FALSE
+    bestModule <- Lendiff > 0 && LenMODULE > minModule && LenMODULE < maxModule
 
     size <- length(group_name)
 
@@ -241,7 +253,10 @@ compute_score_eachgroup <- function(
     Mean <- mean(mean_all[group_name])
     pcc_in <- mean(abs(as.dist(mycor(tab_in))), na.rm = T)
     pcc_out <- mean(abs(mycor(tab_in, tab_out)), na.rm = T)
-    score <- CI(n = size, Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out)
+    score <- CI(
+        n = ifelse(size_effect, size, 1), 
+        Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out
+    )
 
     res <- c(Mean, Sd, cv, pcc_in, pcc_out, score, bestModule)
     return(res)
@@ -251,16 +266,28 @@ compute_score_eachgroup <- function(
 #'
 #' @param object S4:DNB_obj
 #' @param module_list a list of module genes
+#' @param force_allgene whether force to use all genes from data, default FALSE (use DNB_obj@used_gene)
+#' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #'
 #' @return DNB_obj
 #'
-DNBcomputeSingle_DNB_obj <- function(object, module_list) {
+DNBcomputeSingle_DNB_obj <- function(
+    object, 
+    module_list, 
+    force_allgene = FALSE, 
+    size_effect = TRUE
+) {
     data <- object@data
+    used_gene <- object@used_gene
     module_geneslist <- module_list$module
     bestMODULE <- module_list$bestMODULE
     Rank <- module_list$rank
     resource <- module_list$resource
-    score_mtx <- singleDNB(data = data, module_list = module_geneslist)
+    score_mtx <- singleDNB(
+        data = if (force_allgene) data else data[used_gene, , drop = FALSE], 
+        module_list = module_geneslist,
+        size_effect = size_effect
+    )
     Rank_all <- rank(-1 * score_mtx[6, ])
     
     result <- mynew.DNB_res(
@@ -288,23 +315,34 @@ DNBcomputeSingle_DNB_obj <- function(object, module_list) {
 #' @param data data
 #' @param module_list modules list
 #' @param cor_vec vector of correlation coefficient, when data has only one sample (col)
+#' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #'
 #' @return score matrix
 #'
 singleDNB <- function(
     data,
     module_list, # module_list is a list
-    cor_vec = NULL
+    cor_vec = NULL,
+    size_effect = TRUE
 ) {
     # prepare data
     n_sample <- ncol(data)
     all_genes <- rownames(data)
+    all_module_genes <- unlist(module_list)
+    if (!all(all_module_genes %in% all_genes)) {
+        drop_module_genes <- setdiff(all_module_genes, all_genes)
+        warning("Cannot find genes: ", paste0(drop_module_genes, collapse = ','), "! Set force_allgene to use all genes, or make sure consistency between genes from modules and data!")
+        module_list <- lapply(
+            module_list,
+            function(x) setdiff(x, drop_module_genes)
+        )
+    }
     
     if (n_sample == 1) {
         if (is.null(cor_vec))
             stop("cor_vec is required when data has only one sample!")
         if (length(cor_vec) != length(all_genes))
-            stop("cor_vec should be the same length of genes from data!")
+            stop("cor_vec should be the same length of singleDNB!")
     }
 
     # # define result
@@ -330,7 +368,7 @@ singleDNB <- function(
             module_list,
             function(module_genes) {
                 dnb_in <- module_genes
-                dnb_out <- all_genes[which(!all_genes %in% dnb_in)]
+                dnb_out <- setdiff(all_genes, dnb_in)
                 tab_in <- data_tmp[, dnb_in, drop = F]
                 tab_out <- data_tmp[, dnb_out, drop = F]
                 size <- length(dnb_in)
@@ -340,7 +378,10 @@ singleDNB <- function(
                 cv <- mean(cv_all[dnb_in], na.rm = T) # if mean is zero, cv is not defined, so do not consider this one.
                 pcc_in <- mean(abs(as.dist(mycor(tab_in))), na.rm = T)
                 pcc_out <- mean(abs(mycor(tab_in, tab_out)), na.rm = T)
-                score <- CI(n = size, Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out)
+                score <- CI(
+                    n = ifelse(size_effect, size, 1), 
+                    Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out
+                )
 
                 c(Mean, Sd, cv, pcc_in, pcc_out, score)
             }
@@ -352,7 +393,7 @@ singleDNB <- function(
             module_list,
             function(module_genes) {
                 dnb_in <- module_genes
-                dnb_out <- all_genes[which(!all_genes %in% dnb_in)]
+                dnb_out <- setdiff(all_genes, dnb_in)
                 tab_in <- data_tmp[dnb_in]
                 tab_out <- data_tmp[dnb_out]
                 size <- length(dnb_in)
@@ -362,7 +403,10 @@ singleDNB <- function(
                 cv <- if (Mean == 0) NA else Sd / Mean
                 pcc_in <- mean(cor_vec[tab_in])
                 pcc_out <- mean(cor_vec[tab_out])
-                score <- CI(n = size, Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out)
+                score <- CI(
+                    n = ifelse(size_effect, size, 1), 
+                    Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out
+                )
 
                 c(Mean, Sd, cv, pcc_in, pcc_out, score)
             }
@@ -575,22 +619,13 @@ ScoreExtract.DNB_output <- function(
             if (length(index) == 0)
                 stop("Unknown ERROR!")
         }
-        if (length(index) > 1) {
-            warning(
-                "Find multiple resource with equal ranking:",
-                paste(data@resource[index], collapse = ", "),
-                "\nRandomly select one..."
-            )
-            index <- sample(index, 1)
-        }
 
         resource <- data@resource[index]
         mycat("Find resource=", resource, "\n", sep = "", quiet = quiet)
     } else {
         index <- which(data@resource == resource)
-        if (length(index) == 0) {
+        if (length(index) == 0)
             stop("ERROR resource input! ", resource, " cannot be found in object!")
-        }
     }
     
     df_score <- data.frame(
@@ -620,6 +655,8 @@ ScoreExtract.DNB_output <- function(
 #' @param module_list a customized list of module gene
 #' @param meta a data.frame with rownames as cell-id as well as one column of group infomation
 #' @param meta_levels the order of meta group, default ordered by decreasing if NULL
+#' @param force_allgene not use
+#' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param quiet do not message
 #' @param ... not use
 #'
@@ -632,6 +669,8 @@ DNBcompute_custom.default <- function(
     module_list, 
     meta, 
     meta_levels = NULL,
+    force_allgene = TRUE,
+    size_effect = TRUE,
     quiet = FALSE,
     ...
 ) {
@@ -685,6 +724,7 @@ DNBcompute_custom.default <- function(
 
         DNB_output[[i]] <- mynew_dnb(
             data = data_tmp, 
+            used_gene = rownames(data_tmp),
             pre_result = mynew.DNB_res(ntop = module_len), 
             result = mynew.DNB_res(ntop = module_len)
         )
@@ -696,7 +736,7 @@ DNBcompute_custom.default <- function(
     }
     DNB_output <- mynew.DNB_output(group = meta_levels, list_obj = DNB_output)
 
-    DNB_output <- DNBfilter(DNB_output, ntop = module_len, quiet = quiet)
+    DNB_output <- DNBfilter(DNB_output, ntop = module_len, size_effect = size_effect, quiet = quiet)
 
     return(DNB_output)
 }
@@ -707,6 +747,9 @@ DNBcompute_custom.default <- function(
 #' @param module_list a customized list of module gene
 #' @param meta not use
 #' @param meta_levels not use
+#' @param module_list a list of module genes
+#' @param force_allgene whether force to use all genes from data, default TRUE
+#' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param quiet do not message
 #' @param ... not use
 #'
@@ -719,6 +762,8 @@ DNBcompute_custom.DNB_output <- function(
     module_list,
     meta = NULL,
     meta_levels = NULL,
+    force_allgene = TRUE,
+    size_effect = TRUE,
     quiet = FALSE,
     ...
 ) {
@@ -728,7 +773,10 @@ DNBcompute_custom.DNB_output <- function(
     meta_levels <- names(object)
 
     # get data matrix and meta
-    data_list <- lapply(object, function(x) x@data)
+    data_list <- if (force_allgene) 
+        lapply(object, function(x) x@data)
+    else
+        lapply(object, function(x) x@data[x@used_gene, , drop = FALSE])
     data <- data.frame()
     meta_df <- data.frame()
     for (i in seq(meta_levels)) {
@@ -758,7 +806,8 @@ DNBcompute_custom.DNB_output <- function(
         data = data, 
         meta = meta, 
         module_list = module_list, 
-        meta_levels = meta_levels
+        meta_levels = meta_levels,
+        size_effect = size_effect
     )
 
     # combine the new object into the old one

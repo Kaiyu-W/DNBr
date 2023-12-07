@@ -20,7 +20,8 @@ DNBcompute(
   fastMode = FALSE,
   writefile = FALSE,
   cluster_fun = NULL,
-  cluster_args = NULL
+  cluster_args = NULL,
+  size_effect = TRUE
 )
 }
 \arguments{
@@ -40,7 +41,9 @@ or a matrix merging bulk GEMs from at least three different sample}
 
 \item{high_cutoff}{the cutoff value corresponding to the high_method,
 
- with the range between 0 - 1(all) for high_cv and 1 - #allgenes(all) for top_gene}
+ with the range between 0 - 1(all) for high_cv and 1 - #allgenes(all) for top_gene
+
+ or not to select highly variable genes but use all genes when -1}
 
 \item{cutree_method}{the method to select numbers of tree (module) from hclust, 
 
@@ -72,6 +75,8 @@ or a matrix merging bulk GEMs from at least three different sample}
 
 \item{cluster_args}{a list of extra arguments to the cluster_fun call. 
 The names attribute of args gives the argument names. (same to base::do.call(args))}
+
+\item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
 }
 \value{
 S3:DNB_output

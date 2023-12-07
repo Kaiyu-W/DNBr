@@ -9,7 +9,7 @@ DNBcomputeSingle(object, ...)
 \arguments{
 \item{object}{S4:DNB_obj}
 
-\item{...}{parameter: module_list, a list of modules, each with a gene vector}
+\item{...}{parameter: module_list, a list of modules, each with a gene vector, and others}
 }
 \value{
 S4:DNB_obj

@@ -4,12 +4,22 @@
 \alias{DNBfilter}
 \title{DNBfilter}
 \usage{
-DNBfilter(DNB_output, ntop, quiet = FALSE)
+DNBfilter(
+  DNB_output,
+  ntop,
+  force_allgene = FALSE,
+  size_effect = TRUE,
+  quiet = FALSE
+)
 }
 \arguments{
 \item{DNB_output}{S3:DNB_output, from output of DNBcompute}
 
 \item{ntop}{the numbers of modules to filter}
+
+\item{force_allgene}{whether force to use all genes from data, default FALSE (use the gene sets from output of DNBcompute)}
+
+\item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
 
 \item{quiet}{do not message}
 }

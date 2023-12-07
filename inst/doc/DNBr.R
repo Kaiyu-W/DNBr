@@ -12,7 +12,8 @@ data(meta.example)
 # data(diffgenes.example)
 
 # step1. Compute DNB's all modules of each group, return pre-result
-# data.example can be sparse matrix (dgCMatrix)
+# data.example can be sparse matrix (dgCMatrix);
+# use all genes of input data when high_cutoff = -1
 # more parameter's details see ?DNBr::DNBcompute
 a <- DNBcompute(
     data = data.example, 
@@ -24,12 +25,15 @@ a$A
 
 # step2. Select top N modules of each group, and use those to recompute DNB module, return result
 b <- DNBfilter(
-  DNB_output = a, 
-  ntop = 5
+    DNB_output = a, 
+    ntop = 5,
+    force_allgene = TRUE
 )
 # in the best conditions, Module candidates should be number of group_number * ntop
 # however, if some group has no enough Modules meeting requirement, the large ntop may cause some
 # fake result, so check the @MODULEs@bestMODULE to sure that good Module.
+# note that, force_allgene are defaultly set as FALSE, set as TRUE when all genes but not highly variable genes
+# are required to compute DNB.
 b
 b$A
 
@@ -110,8 +114,10 @@ DNBplot(b_custom, group = "USER_CUSTOMIZED", ranking = 1, show = TRUE, save_pdf 
 # or use existing DNB_output object to input:
 b_custom2 <- DNBcompute_custom(
     data = b, 
-    module_list = module_list.example
+    module_list = module_list.example,
+    force_allgene = TRUE
 )
+# note that, force_allgene are defaultly set as TRUE to use all genes
 b_custom2
 DNBplot(b_custom2, group = "USER_CUSTOMIZED", ranking = 1, show = TRUE, save_pdf = FALSE)
 DNBplot(b_custom2, group = "D", ranking = 1, show = TRUE, save_pdf = FALSE)
@@ -146,16 +152,34 @@ cluster.fun <- function(
 a <- DNBcompute(
     data = data.example, 
     meta = meta.example, 
+    high_cutoff = -1,
     cluster_fun = cluster.fun, # the function object, instead of function name "'cluster.fun'"
     cluster_args = NULL, # default NULL, or you can add extra args (assign different value of args except d in each run) to better adapt
     # cluster_args = list(cutree_method = 'k', cutree_cutoff = 10),
     quiet = TRUE # not verbose this
 )
 b <- DNBfilter(
-  DNB_output = a, 
-  ntop = 5
+    DNB_output = a, 
+    ntop = 5,
+    force_allgene = TRUE
 )
 DNBplot(b, group = "A", show = TRUE, save_pdf = FALSE)
 
+
+# 3.About how to select genes
+# when DNBcompute and DNBfilter, there are some tips:
+# 1) Both use all genes of input data: 
+#      DNBcompute high_cutoff set as -1
+# 2) Use all genes of input data only when DNBfilter:
+#      DNBfilter force_allgene set as TRUE
+# 3) Both use highly variable genes:
+#      as default, use high_cutoff(not -1) and force_allgene = FALSE
+#      Note that, there could be some bugs when module genes from one group 
+#        cannot find in another group because highly variable genes are computed in each group 
+#        but not the whole samples, and when this happened the function will choose the 
+#        overlapped genes to work. I haven't tried this bug, so please let me know 
+#        if it indeed happens. What's more, if the highly variable genes from the 
+#        whole samples are required for your meeting, please get and filter them 
+#        in advance by yourself and set high_cutoff as -1 when DNBcompute.
 
 

@@ -14,7 +14,8 @@ compute_score_eachgroup(
   sd_all,
   mean_all,
   minModule,
-  maxModule
+  maxModule,
+  size_effect
 )
 }
 \arguments{
@@ -37,6 +38,8 @@ compute_score_eachgroup(
 \item{minModule}{same to DNBcompute}
 
 \item{maxModule}{same to DNBcompute}
+
+\item{size_effect}{same to DNBcompute}
 }
 \description{
 the parameters come from inner DNBcompute

@@ -18,7 +18,8 @@ myprocess(
   quiet,
   fastMode,
   cluster_fun,
-  cluster_args
+  cluster_args,
+  size_effect
 )
 }
 \arguments{
@@ -49,6 +50,8 @@ myprocess(
 \item{cluster_fun}{same to DNBcompute}
 
 \item{cluster_args}{same to DNBcompute}
+
+\item{size_effect}{same to DNBcompute}
 }
 \description{
 the parameters come from inner DNBcompute

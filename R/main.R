@@ -16,6 +16,8 @@
 #' @param high_cutoff the cutoff value corresponding to the high_method,
 #' 
 #'  with the range between 0 - 1(all) for high_cv and 1 - #allgenes(all) for top_gene
+#'
+#'  or not to select highly variable genes but use all genes when -1
 #' @param cutree_method the method to select numbers of tree (module) from hclust, 
 #' 
 #'  by either h (height, default) or k (number K)
@@ -38,6 +40,7 @@
 #'   If assigned, cutree_method and cutree_cutoff would be ignored
 #' @param cluster_args a list of extra arguments to the cluster_fun call. 
 #'   The names attribute of args gives the argument names. (same to base::do.call(args))
+#' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #'
 #' @return S3:DNB_output
 #'
@@ -66,7 +69,8 @@ DNBcompute <- function(
     fastMode = FALSE,
     writefile = FALSE,
     cluster_fun = NULL,
-    cluster_args = NULL
+    cluster_args = NULL,
+    size_effect = TRUE
 ) {
     high_method <- match.arg(high_method)
     cutree_method <- match.arg(cutree_method)
@@ -96,18 +100,23 @@ DNBcompute <- function(
             stop("ERROR meta_levels! Should be equal to meta!")
     }
 
-    if (high_method == "high_cv") {
-        if (high_cutoff > 1 || high_cutoff <= 0)
-            stop("ERROR high_cutoff! Should be between 0 and 1 when high_method is high_cv!")
+    if (high_cutoff == -1) {
+        message("Use all genes when high_cutoff is -1!")
     } else {
-        if (high_cutoff < 1 || high_cutoff > length(allgenes))
-            stop("ERROR high_cutoff! Should be between less than length of allgenes when high_method is top_gene!")
+        if (high_method == "high_cv") {
+            if (high_cutoff > 1 || high_cutoff <= 0)
+                stop("ERROR high_cutoff! Should be between 0 and 1 when high_method is high_cv! Support for -1 to use all genes!")
+        } else {
+            if (high_cutoff < 1 || high_cutoff > length(allgenes))
+                stop("ERROR high_cutoff! Should be between less than length of allgenes when high_method is top_gene! Support for -1 to use all genes!")
+        }
     }
+    
     if (cutree_method == "h") {
         if (cutree_cutoff > 1 || cutree_cutoff <= 0)
             stop("ERROR cutree_cutoff! Should be between 0 and 1 when cutree_method is h!")
     } else {
-        message("select tree by k! Carefully choose a proper value, or error may occur later.")
+        message("Select tree by k! Carefully choose a proper value, or error may occur later.")
         if (cutree_cutoff < 1)
             stop("ERROR cutree_cutoff! Should be between greater than 1 when cutree_method is k!")
     }
@@ -159,8 +168,9 @@ DNBcompute <- function(
                     high_method = high_method, high_cutoff = high_cutoff,
                     cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
                     minModule = minModule, maxModule = maxModule, fastMode = TRUE,
-                    cluster_fun = cluster_fun, cluster_args = cluster_args
-                    )
+                    cluster_fun = cluster_fun, cluster_args = cluster_args, 
+                    size_effect = size_effect
+                )
                 iii <<- iii + 1
                 utils::setTxtProgressBar(pb, iii / length(group))
                 return(cse)
@@ -178,13 +188,14 @@ DNBcompute <- function(
 
             # process sub-data
             DNB_output[[group_tmp]] <- myprocess(
-                    data = data_tmp, assay_name = group_tmp, quiet = quiet,
-                    diffgenes = diffgenes, allgenes = allgenes,
-                    high_method = high_method, high_cutoff = high_cutoff,
-                    cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
-                    minModule = minModule, maxModule = maxModule, fastMode = FALSE,
-                    cluster_fun = cluster_fun, cluster_args = cluster_args
-                    )
+                data = data_tmp, assay_name = group_tmp, quiet = quiet,
+                diffgenes = diffgenes, allgenes = allgenes,
+                high_method = high_method, high_cutoff = high_cutoff,
+                cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
+                minModule = minModule, maxModule = maxModule, fastMode = FALSE,
+                cluster_fun = cluster_fun, cluster_args = cluster_args,
+                size_effect = size_effect
+            )
 
             cat(group_tmp, ' ends up successfully!\n', sep = '')
         }
@@ -214,6 +225,8 @@ DNBcompute <- function(
 #'
 #' @param DNB_output S3:DNB_output, from output of DNBcompute
 #' @param ntop the numbers of modules to filter
+#' @param force_allgene whether force to use all genes from data, default FALSE (use the gene sets from output of DNBcompute)
+#' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param quiet do not message
 #'
 #' @return S3:DNB_output
@@ -230,6 +243,8 @@ DNBcompute <- function(
 DNBfilter <- function(
     DNB_output,
     ntop,
+    force_allgene = FALSE,
+    size_effect = TRUE,
     quiet = FALSE
 ) {
     if (!is(DNB_output, "DNB_output"))
@@ -242,8 +257,7 @@ DNBfilter <- function(
         function(x) {
             data <- x@pre_result
             rank_tmp <- data@rank
-            bestMODULE_tmp <- data@MODULEs@bestMODULE
-            index <- which(rank_tmp <= ntop & bestMODULE_tmp)
+            index <- which(rank_tmp <= ntop)
             if (length(index) == 0) {
                 NULL
             } else {
@@ -295,7 +309,12 @@ DNBfilter <- function(
     DNB_output_new <- lapply(
         DNB_output,
         function(DNB_obj) {
-            DNBcomputeSingle(object = DNB_obj, module_list = module_list)
+            DNBcomputeSingle(
+                object = DNB_obj, 
+                module_list = module_list,
+                force_allgene = force_allgene,
+                size_effect = size_effect
+            )
         }
     )
     DNB_output_new <- mynew.DNB_output(
@@ -489,6 +508,8 @@ DNBplot <- function(
 #'   use if data is gene expression matrix
 #' @param meta_levels the order of meta group, default ordered by decreasing if NULL, 
 #'   use if data is gene expression matrix
+#' @param force_allgene whether force to use all genes from data, default TRUE
+#' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param quiet do not message
 #' @param ... for future use
 #' 
@@ -511,6 +532,8 @@ DNBcompute_custom <- function(
     module_list,
     meta = NULL,
     meta_levels = NULL,
+    force_allgene = TRUE,
+    size_effect = TRUE,
     quiet = FALSE,
     ...
 ) {

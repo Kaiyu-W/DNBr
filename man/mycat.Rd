@@ -4,7 +4,7 @@
 \alias{mycat}
 \title{to print the process information}
 \usage{
-mycat(..., quiet = F)
+mycat(..., quiet = FALSE)
 }
 \arguments{
 \item{...}{parameters of function cat}

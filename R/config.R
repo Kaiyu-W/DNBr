@@ -28,7 +28,8 @@ CI <- function(n, Sd, pcc_in, pcc_out) {
         test = pcc_out == 0,
         yes = 0,
         no = sqrt(n) * Sd * pcc_in / pcc_out
-    )
+    ) 
+    # the original formula comes when n = 1
 }
 
 #' to print the process information
@@ -37,7 +38,7 @@ CI <- function(n, Sd, pcc_in, pcc_out) {
 #' @param quiet not execute function cat
 #'
 #'
-mycat <- function(..., quiet = F) {
+mycat <- function(..., quiet = FALSE) {
     if (!quiet) cat(...)
 }
 
