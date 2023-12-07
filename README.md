@@ -10,7 +10,7 @@ To install this package, use the following command in R:
 devtools::install_github("Kaiyu-W/DNBr")
 ```
 
-Note that, add force_allgene = TRUE when DNBfilter() to re-produce the output by early version.
+Note that, add force_allgene = TRUE when DNBfilter() to re-produce the output by early version.  
 More details see the codes by `vignette("DNBr")` or `?DNBr::function` in R, please.  
   
 __Example__:
