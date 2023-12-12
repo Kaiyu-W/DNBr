@@ -28,6 +28,6 @@ data(data.example)
 data(meta.example)
 
 a <- DNBcompute(data.example, meta.example)
-b <- DNBfilter(a, ntop = 5)
+b <- DNBfilter(a, ntop = 5, force_allgene = TRUE)
 DNBplot(b, show = TRUE, save_pdf = FALSE)
 ```
