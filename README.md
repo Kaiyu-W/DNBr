@@ -13,7 +13,7 @@ devtools::install_github("Kaiyu-W/DNBr")
 More details see the codes by `vignette("DNBr")` or `?DNBr::function` in R, please.  
   
 __Log__:  
-- Add chioce `high_cutoff = -1` for DNBcompute() to skip selecting highly variable genes.  
+- Add choice `high_cutoff = -1` for DNBcompute() to skip selecting highly variable genes.  
 - Add parameter `force_allgene` for DNBfilter() to control which genes are used as background.  
   
 - Note that,  
