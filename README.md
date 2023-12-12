@@ -10,15 +10,16 @@ To install this package, use the following command in R:
 devtools::install_github("Kaiyu-W/DNBr")
 ```
   
+More details see the codes by `vignette("DNBr")` or `?DNBr::function` in R, please.  
+  
 __Log__:  
 - Add chioce `high_cutoff = -1` for DNBcompute() to skip selecting highly variable genes.  
 - Add parameter `force_allgene` for DNBfilter() to control which genes are used as background.  
-- More details see the codes by `vignette("DNBr")` or `?DNBr::function` in R, please.  
   
-Note that,  
-- To stay consistent with DNBcompute(), DNBfilter(force_allgene = FALSE) as default.  
-- There may be some missing genes when DNBfilter(force_allgene = FALSE) because of different high variable genes among groups, and those missing ones will later be removed from modules during computation. Use `DNBcompute(..., high_cutoff = -1)` to avoid this.
-- Use `DNBfilter(..., force_allgene = TRUE)` to re-produce the output by early version.  
+- Note that,  
+  - To stay consistent with DNBcompute(), DNBfilter(force_allgene = FALSE) as default.  
+  - There may be some missing genes when DNBfilter(force_allgene = FALSE) because of different high variable genes among groups, and those missing ones will later be removed from modules during computation. Use `DNBcompute(..., high_cutoff = -1)` to avoid this.
+  - Use `DNBfilter(..., force_allgene = TRUE)` to re-produce the output by early version.  
   
 __Example__:
 ```R
