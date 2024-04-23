@@ -368,11 +368,14 @@ SSNcompute <- function(
         deltaNet$delta_pvalue <- apply(
             deltaNet[, c('cor_delta', 'cor')], 
             1, 
-            function(x) deltaPCC.test(
-                delta = x[1], 
-                r0 = x[2], 
-                n0 = N_ref
-            )
+            function(x) {
+                p <- deltaPCC.test(
+                    delta = x[1], 
+                    r0 = x[2], 
+                    n0 = N_ref
+                )
+                ifelse(is.na(p), 1, p)
+            }
         )
         # select the significant edges
         deltaNet_sig <- deltaNet[deltaNet$delta_pvalue <= delta_p, ]
