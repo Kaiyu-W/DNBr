@@ -187,6 +187,7 @@ DNBcompute <- function(
         n_cores <- 1
         inner_workers <- 1
     }
+    if (n_cores == 1) fastMode <- FALSE
 
     if (fastMode) {
         # iii <- 0
@@ -368,6 +369,7 @@ DNBfilter <- function(
         n_cores <- 1
         inner_workers <- 1
     }
+    if (n_cores == 1) fastMode <- FALSE
 
     module_list_tmp <- lapply(
         DNB_output,
