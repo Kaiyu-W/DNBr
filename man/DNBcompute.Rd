@@ -20,6 +20,7 @@ DNBcompute(
   fastMode = FALSE,
   n_cores = -1,
   avoid_multicore = FALSE,
+  only_inner_parallel = FALSE,
   writefile = FALSE,
   cluster_fun = NULL,
   cluster_args = NULL,
@@ -70,6 +71,10 @@ or a matrix merging bulk GEMs from at least three different sample}
   default FALSE (use future::multicore for unix-like os). 
 
   This may works with balances between stability (multisession) and memory&speed (multicore).}
+
+\item{only_inner_parallel}{use serial computation rather than outer parallel and all cores for inner parallel, 
+
+  default FALSE (nested-parallel).}
 
 \item{writefile}{write results of each group into DNB_Module_information_xx.txt with tab delimiter, default FALSE}
 

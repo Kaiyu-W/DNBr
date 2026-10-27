@@ -12,6 +12,7 @@ DNBfilter(
   fastMode = FALSE,
   n_cores = -1,
   avoid_multicore = FALSE,
+  only_inner_parallel = FALSE,
   quiet = FALSE
 )
 }
@@ -29,6 +30,10 @@ DNBfilter(
 \item{n_cores}{number of cores used for nested-parallel computation, default -1 (use all available cores minus 1)}
 
 \item{avoid_multicore}{do not use future::multicore, default FALSE}
+
+\item{only_inner_parallel}{use serial computation rather than outer parallel and all cores for inner parallel, 
+
+  default FALSE (nested-parallel).}
 
 \item{quiet}{do not message}
 }

@@ -38,7 +38,9 @@
 #'   default FALSE (use future::multicore for unix-like os). 
 #' 
 #'   This may works with balances between stability (multisession) and memory&speed (multicore).
-
+#' @param only_inner_parallel use serial computation rather than outer parallel and all cores for inner parallel, 
+#' 
+#'   default FALSE (nested-parallel). 
 #' @param writefile write results of each group into DNB_Module_information_xx.txt with tab delimiter, default FALSE
 #' @param cluster_fun customized function that user design for clustering to find module, 
 #' 
@@ -80,6 +82,7 @@ DNBcompute <- function(
     fastMode = FALSE,
     n_cores = -1,
     avoid_multicore = FALSE,
+    only_inner_parallel = FALSE,
     writefile = FALSE,
     cluster_fun = NULL,
     cluster_args = NULL,
@@ -181,14 +184,26 @@ DNBcompute <- function(
                 fastMode <- FALSE
                 message("Reverting to serial mode (fastMode = FALSE) because only 1 core detected!")
             } else {
-                inner_workers <- max(1, total_cores %/% length(group))
-                message("Set ", n_cores, " cores for parallel computation with each ", inner_workers, " inner workers!")
+                if (only_inner_parallel) {
+                    inner_workers <- total_cores
+                    message("Serial computation with each ", inner_workers, " inner workers!")
+                } else {
+                    inner_workers <- max(1, total_cores %/% length(group))
+                    message("Set ", n_cores, " cores for parallel computation with each ", inner_workers, " inner workers!")
+                }
             }
         } else {
             total_cores <- n_cores
             n_cores <- min(total_cores, length(group))
-            inner_workers <- max(1, total_cores %/% length(group))
-            message("Set ", n_cores, " cores for parallel computation with each ", inner_workers, " inner workers!")
+
+            if (only_inner_parallel) {
+                inner_workers <- total_cores
+                message("Serial computation with each ", inner_workers, " inner workers!")
+            } else {
+                inner_workers <- max(1, total_cores %/% length(group))
+                message("Set ", n_cores, " cores for parallel computation with each ", inner_workers, " inner workers!")
+            }
+            
         }
     } else {
         n_cores <- 1
@@ -196,7 +211,7 @@ DNBcompute <- function(
     }
     if (n_cores == 1) fastMode <- FALSE
 
-    if (fastMode) {
+    if (fastMode && !only_inner_parallel) {
         # iii <- 0
         # pb <- utils::txtProgressBar(style = 3)
         # DNB_output <- lapply(
@@ -288,7 +303,8 @@ DNBcompute <- function(
                 high_method = high_method, high_cutoff = high_cutoff,
                 cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
                 minModule = minModule, maxModule = maxModule, 
-                fastMode = FALSE, avoid_multicore = avoid_multicore, n_cores = inner_workers,
+                fastMode = fastMode && only_inner_parallel, 
+                avoid_multicore = avoid_multicore, n_cores = inner_workers,
                 cluster_fun = cluster_fun, cluster_args = cluster_args,
                 size_effect = size_effect
             )
@@ -326,6 +342,9 @@ DNBcompute <- function(
 #' @param fastMode avoid using for loop, rathan future-apply function, default FALSE
 #' @param n_cores number of cores used for nested-parallel computation, default -1 (use all available cores minus 1)
 #' @param avoid_multicore do not use future::multicore, default FALSE
+#' @param only_inner_parallel use serial computation rather than outer parallel and all cores for inner parallel, 
+#' 
+#'   default FALSE (nested-parallel). 
 #' @param quiet do not message
 #'
 #' @return S3:DNB_output
@@ -347,13 +366,13 @@ DNBfilter <- function(
     fastMode = FALSE,
     n_cores = -1,
     avoid_multicore = FALSE,
+    only_inner_parallel = FALSE,
     quiet = FALSE
 ) {
     if (!is(DNB_output, "DNB_output"))
         stop("ERROR input! Should be S3-DNB_output!")
 
     group <- names(DNB_output)
-
     if (fastMode) {
         if (is.null(n_cores) || n_cores < 1) {
             total_cores <- parallel::detectCores() - 1
@@ -365,14 +384,26 @@ DNBfilter <- function(
                 fastMode <- FALSE
                 message("Reverting to serial mode (fastMode = FALSE) because only 1 core detected!")
             } else {
-                inner_workers <- max(1, total_cores %/% length(group))
-                message("Set ", n_cores, " cores for parallel computation with each ", inner_workers, " inner workers!")
+                if (only_inner_parallel) {
+                    inner_workers <- total_cores
+                    message("Serial computation with each ", inner_workers, " inner workers!")
+                } else {
+                    inner_workers <- max(1, total_cores %/% length(group))
+                    message("Set ", n_cores, " cores for parallel computation with each ", inner_workers, " inner workers!")
+                }
             }
         } else {
             total_cores <- n_cores
             n_cores <- min(total_cores, length(group))
-            inner_workers <- max(1, total_cores %/% length(group))
-            message("Set ", n_cores, " cores for parallel computation with each ", inner_workers, " inner workers!")
+
+            if (only_inner_parallel) {
+                inner_workers <- total_cores
+                message("Serial computation with each ", inner_workers, " inner workers!")
+            } else {
+                inner_workers <- max(1, total_cores %/% length(group))
+                message("Set ", n_cores, " cores for parallel computation with each ", inner_workers, " inner workers!")
+            }
+            
         }
     } else {
         n_cores <- 1
@@ -434,7 +465,7 @@ DNBfilter <- function(
         module_list[[i]] <- module_list[[i]][unique_index]
 
     # generate DNB_output@result
-    if (fastMode) {
+    if (fastMode && !only_inner_parallel) {
         old_plan <- future::plan(future::multisession, workers = n_cores)
         on.exit(future::plan(old_plan), add = TRUE)
         
