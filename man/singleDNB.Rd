@@ -4,7 +4,14 @@
 \alias{singleDNB}
 \title{Compute data for the modules list, and return score matrix}
 \usage{
-singleDNB(data, module_list, cor_vec = NULL, size_effect = TRUE, n_cores = 1)
+singleDNB(
+  data,
+  module_list,
+  cor_vec = NULL,
+  size_effect = TRUE,
+  n_cores = 1,
+  avoid_multicore = FALSE
+)
 }
 \arguments{
 \item{data}{data}
@@ -16,6 +23,8 @@ singleDNB(data, module_list, cor_vec = NULL, size_effect = TRUE, n_cores = 1)
 \item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
 
 \item{n_cores}{number of cores for parallel computation, default 1 (serial)}
+
+\item{avoid_multicore}{do not use future::multicore}
 }
 \value{
 score matrix

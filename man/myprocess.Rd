@@ -20,7 +20,8 @@ myprocess(
   cluster_fun,
   cluster_args,
   size_effect,
-  n_cores = 1
+  n_cores = 1,
+  avoid_multicore = FALSE
 )
 }
 \arguments{
@@ -55,6 +56,8 @@ myprocess(
 \item{size_effect}{same to DNBcompute}
 
 \item{n_cores}{inner number of cores used for parallel computation}
+
+\item{avoid_multicore}{same to DNBcompute}
 }
 \description{
 the parameters come from inner DNBcompute

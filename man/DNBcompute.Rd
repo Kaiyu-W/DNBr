@@ -19,6 +19,7 @@ DNBcompute(
   quiet = FALSE,
   fastMode = FALSE,
   n_cores = -1,
+  avoid_multicore = FALSE,
   writefile = FALSE,
   cluster_fun = NULL,
   cluster_args = NULL,
@@ -42,17 +43,17 @@ or a matrix merging bulk GEMs from at least three different sample}
 
 \item{high_cutoff}{the cutoff value corresponding to the high_method,
 
- with the range between 0 - 1(all) for high_cv and 1 - #allgenes(all) for top_gene
+  with the range between 0 - 1(all) for high_cv and 1 - #allgenes(all) for top_gene
 
- or not to select highly variable genes but use all genes when -1}
+  or not to select highly variable genes but use all genes when -1}
 
 \item{cutree_method}{the method to select numbers of tree (module) from hclust, 
 
- by either h (height, default) or k (number K)}
+  by either h (height, default) or k (number K)}
 
 \item{cutree_cutoff}{the cutoff value corresponding to the cutree_method,
 
- with the range between 0-1 for h and a number greater than 0 for k}
+  with the range between 0-1 for h and a number greater than 0 for k}
 
 \item{minModule}{the min number of genes of the module meeting requirements}
 
@@ -63,6 +64,12 @@ or a matrix merging bulk GEMs from at least three different sample}
 \item{fastMode}{avoid using for loop, rathan future-apply function, default FALSE; if TRUE, quiet will be set as TRUE}
 
 \item{n_cores}{number of cores used for nested-parallel computation, default -1 (use all available cores minus 1)}
+
+\item{avoid_multicore}{use future::multisession but not future::multicore in inner parallel computation, 
+
+  default FALSE (use future::multicore for unix-like os). 
+
+  This may works with balances between stability (multisession) and memory&speed (multicore).}
 
 \item{writefile}{write results of each group into DNB_Module_information_xx.txt with tab delimiter, default FALSE}
 

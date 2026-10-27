@@ -9,7 +9,8 @@ DNBcomputeSingle_DNB_obj(
   module_list,
   force_allgene = FALSE,
   size_effect = TRUE,
-  n_cores = 1
+  n_cores = 1,
+  avoid_multicore = FALSE
 )
 }
 \arguments{
@@ -22,6 +23,8 @@ DNBcomputeSingle_DNB_obj(
 \item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
 
 \item{n_cores}{number of cores for parallel computation, default 1 (serial)}
+
+\item{avoid_multicore}{do not use future::multicore}
 }
 \value{
 DNB_obj

@@ -19,20 +19,26 @@
 #' @param high_method the method to select genes for the first step, by either high_cv (default) or top_gene
 #' @param high_cutoff the cutoff value corresponding to the high_method,
 #' 
-#'  with the range between 0 - 1(all) for high_cv and 1 - #allgenes(all) for top_gene
+#'   with the range between 0 - 1(all) for high_cv and 1 - #allgenes(all) for top_gene
 #'
-#'  or not to select highly variable genes but use all genes when -1
+#'   or not to select highly variable genes but use all genes when -1
 #' @param cutree_method the method to select numbers of tree (module) from hclust, 
 #' 
-#'  by either h (height, default) or k (number K)
+#'   by either h (height, default) or k (number K)
 #' @param cutree_cutoff the cutoff value corresponding to the cutree_method,
 #' 
-#'  with the range between 0-1 for h and a number greater than 0 for k
+#'   with the range between 0-1 for h and a number greater than 0 for k
 #' @param minModule the min number of genes of the module meeting requirements
 #' @param maxModule the max number of genes of the module meeting requirements
 #' @param quiet do not print output of process during calculation (against verbose), default FALSE
 #' @param fastMode avoid using for loop, rathan future-apply function, default FALSE; if TRUE, quiet will be set as TRUE
 #' @param n_cores number of cores used for nested-parallel computation, default -1 (use all available cores minus 1)
+#' @param avoid_multicore use future::multisession but not future::multicore in inner parallel computation, 
+#' 
+#'   default FALSE (use future::multicore for unix-like os). 
+#' 
+#'   This may works with balances between stability (multisession) and memory&speed (multicore).
+
 #' @param writefile write results of each group into DNB_Module_information_xx.txt with tab delimiter, default FALSE
 #' @param cluster_fun customized function that user design for clustering to find module, 
 #' 
@@ -73,6 +79,7 @@ DNBcompute <- function(
     quiet = FALSE,
     fastMode = FALSE,
     n_cores = -1,
+    avoid_multicore = FALSE,
     writefile = FALSE,
     cluster_fun = NULL,
     cluster_args = NULL,
@@ -255,7 +262,7 @@ DNBcompute <- function(
                     high_method = high_method, high_cutoff = high_cutoff,
                     cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
                     minModule = minModule, maxModule = maxModule, 
-                    fastMode = TRUE, n_cores = inner_workers,
+                    fastMode = TRUE, avoid_multicore = avoid_multicore, n_cores = inner_workers,
                     cluster_fun = cluster_fun, cluster_args = cluster_args, 
                     size_effect = size_effect
                 )
@@ -281,7 +288,7 @@ DNBcompute <- function(
                 high_method = high_method, high_cutoff = high_cutoff,
                 cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
                 minModule = minModule, maxModule = maxModule, 
-                fastMode = FALSE, n_cores = inner_workers,
+                fastMode = FALSE, avoid_multicore = avoid_multicore, n_cores = inner_workers,
                 cluster_fun = cluster_fun, cluster_args = cluster_args,
                 size_effect = size_effect
             )
@@ -318,6 +325,7 @@ DNBcompute <- function(
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param fastMode avoid using for loop, rathan future-apply function, default FALSE
 #' @param n_cores number of cores used for nested-parallel computation, default -1 (use all available cores minus 1)
+#' @param avoid_multicore do not use future::multicore, default FALSE
 #' @param quiet do not message
 #'
 #' @return S3:DNB_output
@@ -338,6 +346,7 @@ DNBfilter <- function(
     size_effect = TRUE,
     fastMode = FALSE,
     n_cores = -1,
+    avoid_multicore = FALSE,
     quiet = FALSE
 ) {
     if (!is(DNB_output, "DNB_output"))
@@ -466,7 +475,8 @@ DNBfilter <- function(
                     module_list = module_list,
                     force_allgene = force_allgene,
                     size_effect = size_effect,
-                    n_cores = inner_workers
+                    n_cores = inner_workers,
+                    avoid_multicore = avoid_multicore
                 )
                 pb(message = sprintf("Processed group: %s", task$name))
                 return(res)
@@ -482,7 +492,8 @@ DNBfilter <- function(
                     module_list = module_list,
                     force_allgene = force_allgene,
                     size_effect = size_effect,
-                    n_cores = inner_workers
+                    n_cores = inner_workers,
+                    avoid_multicore = avoid_multicore
                 )
             }
         )

@@ -18,6 +18,7 @@
 #' @param cluster_args same to DNBcompute
 #' @param size_effect same to DNBcompute
 #' @param n_cores inner number of cores used for parallel computation
+#' @param avoid_multicore same to DNBcompute
 #'
 #'
 myprocess <- function(
@@ -36,7 +37,8 @@ myprocess <- function(
     cluster_fun,
     cluster_args,
     size_effect,
-    n_cores = 1
+    n_cores = 1,
+    avoid_multicore = FALSE
 ) {
     mycat("\tProcess ...\n", quiet = quiet)
     data0 <- data
@@ -134,7 +136,7 @@ myprocess <- function(
         #     }
         # )
 
-        optimal_plan <- if (is_windows_os()) future::multisession else future::multicore
+        optimal_plan <- if (is_windows_os() || avoid_multicore) future::multisession else future::multicore
         old_plan_inner <- future::plan(optimal_plan, workers = n_cores)
 
         # on.exit(future::plan(old_plan_inner), add = TRUE)
@@ -303,6 +305,7 @@ compute_score_eachgroup <- function(
 #' @param force_allgene whether force to use all genes from data, default FALSE (use DNB_obj@used_gene)
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param n_cores number of cores for parallel computation, default 1 (serial)
+#' @param avoid_multicore do not use future::multicore
 #'
 #' @return DNB_obj
 #'
@@ -311,7 +314,8 @@ DNBcomputeSingle_DNB_obj <- function(
     module_list, 
     force_allgene = FALSE, 
     size_effect = TRUE,
-    n_cores = 1
+    n_cores = 1,
+    avoid_multicore = FALSE
 ) {
     data <- object@data
     used_gene <- object@used_gene
@@ -323,7 +327,8 @@ DNBcomputeSingle_DNB_obj <- function(
         data = if (force_allgene) data else data[used_gene, , drop = FALSE], 
         module_list = module_geneslist,
         size_effect = size_effect,
-        n_cores = n_cores
+        n_cores = n_cores,
+        avoid_multicore = avoid_multicore
     )
     Rank_all <- rank(-1 * score_mtx[6, ])
     
@@ -354,6 +359,7 @@ DNBcomputeSingle_DNB_obj <- function(
 #' @param cor_vec vector of correlation coefficient, when data has only one sample (col)
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param n_cores number of cores for parallel computation, default 1 (serial)
+#' @param avoid_multicore do not use future::multicore
 #'
 #' @return score matrix
 #'
@@ -362,7 +368,8 @@ singleDNB <- function(
     module_list, # module_list is a list
     cor_vec = NULL,
     size_effect = TRUE,
-    n_cores = 1
+    n_cores = 1,
+    avoid_multicore = FALSE
 ) {
     # prepare data
     n_sample <- ncol(data)
@@ -481,7 +488,7 @@ singleDNB <- function(
     }
 
     if (n_cores > 1 && length(module_list) > 1) {
-        optimal_plan <- if (is_windows_os()) future::multisession else future::multicore
+        optimal_plan <- if (is_windows_os() || avoid_multicore) future::multisession else future::multicore
         old_plan_inner <- future::plan(optimal_plan, workers = n_cores)
 
         # on.exit(future::plan(old_plan_inner), add = TRUE)

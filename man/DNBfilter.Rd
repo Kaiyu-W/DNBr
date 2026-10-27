@@ -11,6 +11,7 @@ DNBfilter(
   size_effect = TRUE,
   fastMode = FALSE,
   n_cores = -1,
+  avoid_multicore = FALSE,
   quiet = FALSE
 )
 }
@@ -26,6 +27,8 @@ DNBfilter(
 \item{fastMode}{avoid using for loop, rathan future-apply function, default FALSE}
 
 \item{n_cores}{number of cores used for nested-parallel computation, default -1 (use all available cores minus 1)}
+
+\item{avoid_multicore}{do not use future::multicore, default FALSE}
 
 \item{quiet}{do not message}
 }

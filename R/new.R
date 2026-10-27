@@ -251,6 +251,7 @@ setGeneric(
 #' @param force_allgene whether force to use all genes from data, default FALSE (use DNB_obj@used_gene)
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param n_cores number of cores for parallel computation, default 1 (serial)
+#' @param avoid_multicore do not use future::multicore, default FALSE
 #'
 setMethod(
     "DNBcomputeSingle", signature(object = "DNB_obj"),
@@ -259,14 +260,16 @@ setMethod(
         module_list, 
         force_allgene = FALSE, 
         size_effect = TRUE, 
-        n_cores=1
+        n_cores = 1,
+        avoid_multicore = FALSE
     ) {
         DNBcomputeSingle_DNB_obj(
             object = object, 
             module_list = module_list, 
             force_allgene = force_allgene, 
             size_effect = size_effect, 
-            n_cores = n_cores
+            n_cores = n_cores,
+            avoid_multicore = avoid_multicore
         )
     }
 )
