@@ -4,7 +4,7 @@
 \alias{singleDNB}
 \title{Compute data for the modules list, and return score matrix}
 \usage{
-singleDNB(data, module_list, cor_vec = NULL, size_effect = TRUE)
+singleDNB(data, module_list, cor_vec = NULL, size_effect = TRUE, n_cores = 1)
 }
 \arguments{
 \item{data}{data}
@@ -14,6 +14,8 @@ singleDNB(data, module_list, cor_vec = NULL, size_effect = TRUE)
 \item{cor_vec}{vector of correlation coefficient, when data has only one sample (col)}
 
 \item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
+
+\item{n_cores}{number of cores for parallel computation, default 1 (serial)}
 }
 \value{
 score matrix

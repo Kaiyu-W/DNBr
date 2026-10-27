@@ -6,9 +6,9 @@
 #'
 #'
 mycor <- function(x, y = NULL, ...) {
-    if (is(x, "dgCMatrix"))
+    if (inherits(x, "sparseMatrix"))
         x <- as.matrix(x)
-    if (is(y, "dgCMatrix"))
+    if (inherits(y, "sparseMatrix"))
         y <- as.matrix(y)
     
     obj <- suppressWarnings(stats::cor(x = x, y = y, ...))
@@ -39,7 +39,22 @@ CI <- function(n, Sd, pcc_in, pcc_out) {
 #'
 #'
 mycat <- function(..., quiet = FALSE) {
-    if (!quiet) cat(...)
+    if (!quiet) {
+        cat(...)
+
+        # Ensure compatibility with Jupyter Notebook by forcing output flush
+        tryCatch(
+            flush.console(), 
+            error = function(e) {}
+        )
+    }
 }
 
 
+#' Detect if the operating system is Windows
+#'
+#' @return Logical. TRUE if Windows, FALSE otherwise.
+#' 
+is_windows_os <- function() {
+    tolower(Sys.info()["sysname"]) == "windows"
+}

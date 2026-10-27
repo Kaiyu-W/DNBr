@@ -10,6 +10,9 @@
 #' @param meta_levels the order of meta-group in the plots, default levels(df_score$Names) if be null
 #' @param ... not use
 #'
+#' @return plotScore()
+#' @method DNBplot DNB_output
+#' @export
 #'
 DNBplot.DNB_output <- function(
     object,
@@ -50,6 +53,9 @@ DNBplot.DNB_output <- function(
 #' @param meta_levels the order of meta-group in the plots, default levels(df_score$Names) if be null
 #' @param ... not use
 #'
+#' @return plotScore()
+#' @method DNBplot data.frame
+#' @export
 #'
 DNBplot.data.frame <- function(
     object,
@@ -82,6 +88,8 @@ DNBplot.data.frame <- function(
 #' @param ... parameters to ggsave()
 #'
 #' @return plot(if ggplot2/gridExtra installed, return ggplot object) or pdf
+#' @import ggplot2
+#' @import cowplot 
 #' @export
 #'
 plotScore <- function(

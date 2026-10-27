@@ -1,3 +1,7 @@
+#' Support for dgCMatrix sparse matrices
+#' @import Matrix
+"_PACKAGE"
+
 #' @title DNBcompute
 #'
 #' @description Compute the Dynamic Network Biomarkers(DNB) model
@@ -27,7 +31,8 @@
 #' @param minModule the min number of genes of the module meeting requirements
 #' @param maxModule the max number of genes of the module meeting requirements
 #' @param quiet do not print output of process during calculation (against verbose), default FALSE
-#' @param fastMode avoid using for loop, rathan apply-like function, default FALSE; if TRUE, quiet will be set as TRUE
+#' @param fastMode avoid using for loop, rathan future-apply function, default FALSE; if TRUE, quiet will be set as TRUE
+#' @param n_cores number of cores used for nested-parallel computation, default -1 (use all available cores minus 1)
 #' @param writefile write results of each group into DNB_Module_information_xx.txt with tab delimiter, default FALSE
 #' @param cluster_fun customized function that user design for clustering to find module, 
 #' 
@@ -67,6 +72,7 @@ DNBcompute <- function(
     maxModule = 60,
     quiet = FALSE,
     fastMode = FALSE,
+    n_cores = -1,
     writefile = FALSE,
     cluster_fun = NULL,
     cluster_args = NULL,
@@ -74,6 +80,7 @@ DNBcompute <- function(
 ) {
     high_method <- match.arg(high_method)
     cutree_method <- match.arg(cutree_method)
+
     if (fastMode & !quiet)
         message("quiet will be set as TRUE if fastMode set as TRUE!")
     
@@ -153,31 +160,111 @@ DNBcompute <- function(
     # step2. initiate result
     DNB_output <- mynew.DNB_output(group = group)
 
+
     # step3. process computation in order of meta
+    # check workers
     if (fastMode) {
-        iii <- 0
-        pb <- utils::txtProgressBar(style = 3)
-        DNB_output <- lapply(
-            group,
-            function(group_tmp) {
-                data_tmp <- data[, rownames(meta)[meta[, 1] == group_tmp], drop = FALSE]
-                # data_tmp <- data.frame(data_tmp, check.names = FALSE)
+        if (is.null(n_cores) || n_cores < 1) {
+            total_cores <- parallel::detectCores() - 1
+            n_cores <- min(total_cores, length(group))
+            
+            if (n_cores < 1) {
+                n_cores <- 1
+                inner_workers <- 1
+                fastMode <- FALSE
+                message("Reverting to serial mode (fastMode = FALSE) because only 1 core detected!")
+            } else {
+                inner_workers <- max(1, total_cores %/% length(group))
+                message("Set ", n_cores, " cores for parallel computation with each ", inner_workers, " inner workers!")
+            }
+        } else {
+            total_cores <- n_cores
+            n_cores <- min(total_cores, length(group))
+            inner_workers <- max(1, total_cores %/% length(group))
+            message("Set ", n_cores, " cores for parallel computation with each ", inner_workers, " inner workers!")
+        }
+    } else {
+        n_cores <- 1
+        inner_workers <- 1
+    }
+
+    if (fastMode) {
+        # iii <- 0
+        # pb <- utils::txtProgressBar(style = 3)
+        # DNB_output <- lapply(
+        #     group,
+        #     function(group_tmp) {
+        #         data_tmp <- data[, rownames(meta)[meta[, 1] == group_tmp], drop = FALSE]
+        #         # data_tmp <- data.frame(data_tmp, check.names = FALSE)
+        #         cse <- myprocess(
+        #             data = data_tmp, assay_name = group_tmp, quiet = TRUE,
+        #             diffgenes = diffgenes, allgenes = allgenes,
+        #             high_method = high_method, high_cutoff = high_cutoff,
+        #             cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
+        #             minModule = minModule, maxModule = maxModule, fastMode = TRUE,
+        #             cluster_fun = cluster_fun, cluster_args = cluster_args, 
+        #             size_effect = size_effect
+        #         )
+        #         iii <<- iii + 1
+        #         utils::setTxtProgressBar(pb, iii / length(group))
+        #         return(cse)
+        #     }
+        # )
+        # close(pb)
+        # DNB_output <- mynew.DNB_output(group = group, list_obj = DNB_output)
+
+        old_plan <- future::plan(future::multisession, workers = n_cores)
+        on.exit(future::plan(old_plan), add = TRUE)
+
+        old_handlers <- progressr::handlers()
+        on.exit(progressr::handlers(old_handlers), add = TRUE)
+
+        old_opts <- options(
+            progressr.enable = getOption("progressr.enable"),
+            progressr.delay_stdout = getOption("progressr.delay_stdout")
+        )
+        on.exit(options(old_opts), add = TRUE)
+        is_nb <- !is.null(getOption("jupyter.in_kernel")) || Sys.getenv("JPY_PARENT_PID") != ""
+
+        if (quiet) {
+            progressr::handlers(character(0))
+        } else {
+            if (is_nb) {
+                options(progressr.enable = TRUE, progressr.delay_stdout = FALSE)
+                progressr::handlers(progressr::handler_txtprogressbar(file = stdout(), clear = FALSE))
+            } else {
+                progressr::handlers("txtprogressbar")
+            }
+        }
+
+        task_data_list <- lapply(group, function(g) {
+            list(
+                data = data[, rownames(meta)[meta[, 1] == g], drop = FALSE],
+                name = g
+            )
+        })
+
+        DNB_output_list <- progressr::with_progress({
+            pb <- progressr::progressor(along = task_data_list)
+
+            future.apply::future_lapply(task_data_list, function(task) {
                 cse <- myprocess(
-                    data = data_tmp, assay_name = group_tmp, quiet = TRUE,
+                    data = task$data, assay_name = task$name, quiet = TRUE,
                     diffgenes = diffgenes, allgenes = allgenes,
                     high_method = high_method, high_cutoff = high_cutoff,
                     cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
-                    minModule = minModule, maxModule = maxModule, fastMode = TRUE,
+                    minModule = minModule, maxModule = maxModule, 
+                    fastMode = TRUE, n_cores = inner_workers,
                     cluster_fun = cluster_fun, cluster_args = cluster_args, 
                     size_effect = size_effect
                 )
-                iii <<- iii + 1
-                utils::setTxtProgressBar(pb, iii / length(group))
+                pb(message = sprintf("Processed group: %s", task$name))
                 return(cse)
-            }
-        )
-        close(pb)
-        DNB_output <- mynew.DNB_output(group = group, list_obj = DNB_output)
+            })
+        })
+        
+        DNB_output <- mynew.DNB_output(group = group, list_obj = DNB_output_list)
+        
     } else {
         for (group_tmp in group) {
             cat('Now run ', group_tmp, '\n', sep = '')
@@ -192,7 +279,8 @@ DNBcompute <- function(
                 diffgenes = diffgenes, allgenes = allgenes,
                 high_method = high_method, high_cutoff = high_cutoff,
                 cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
-                minModule = minModule, maxModule = maxModule, fastMode = FALSE,
+                minModule = minModule, maxModule = maxModule, 
+                fastMode = FALSE, n_cores = inner_workers,
                 cluster_fun = cluster_fun, cluster_args = cluster_args,
                 size_effect = size_effect
             )
@@ -227,6 +315,8 @@ DNBcompute <- function(
 #' @param ntop the numbers of modules to filter
 #' @param force_allgene whether force to use all genes from data, default FALSE (use the gene sets from output of DNBcompute)
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
+#' @param fastMode avoid using for loop, rathan future-apply function, default FALSE
+#' @param n_cores number of cores used for nested-parallel computation, default -1 (use all available cores minus 1)
 #' @param quiet do not message
 #'
 #' @return S3:DNB_output
@@ -245,12 +335,39 @@ DNBfilter <- function(
     ntop,
     force_allgene = FALSE,
     size_effect = TRUE,
+    fastMode = FALSE,
+    n_cores = -1,
     quiet = FALSE
 ) {
     if (!is(DNB_output, "DNB_output"))
         stop("ERROR input! Should be S3-DNB_output!")
 
     group <- names(DNB_output)
+
+    if (fastMode) {
+        if (is.null(n_cores) || n_cores < 1) {
+            total_cores <- parallel::detectCores() - 1
+            n_cores <- min(total_cores, length(group))
+            
+            if (n_cores < 1) {
+                n_cores <- 1
+                inner_workers <- 1
+                fastMode <- FALSE
+                message("Reverting to serial mode (fastMode = FALSE) because only 1 core detected!")
+            } else {
+                inner_workers <- max(1, total_cores %/% length(group))
+                message("Set ", n_cores, " cores for parallel computation with each ", inner_workers, " inner workers!")
+            }
+        } else {
+            total_cores <- n_cores
+            n_cores <- min(total_cores, length(group))
+            inner_workers <- max(1, total_cores %/% length(group))
+            message("Set ", n_cores, " cores for parallel computation with each ", inner_workers, " inner workers!")
+        }
+    } else {
+        n_cores <- 1
+        inner_workers <- 1
+    }
 
     module_list_tmp <- lapply(
         DNB_output,
@@ -306,19 +423,71 @@ DNBfilter <- function(
         module_list[[i]] <- module_list[[i]][unique_index]
 
     # generate DNB_output@result
-    DNB_output_new <- lapply(
-        DNB_output,
-        function(DNB_obj) {
-            DNBcomputeSingle(
-                object = DNB_obj, 
-                module_list = module_list,
-                force_allgene = force_allgene,
-                size_effect = size_effect
-            )
+    if (fastMode) {
+        old_plan <- future::plan(future::multisession, workers = n_cores)
+        on.exit(future::plan(old_plan), add = TRUE)
+        
+        old_handlers <- progressr::handlers()
+        on.exit(progressr::handlers(old_handlers), add = TRUE)
+
+        old_opts <- options(
+            progressr.enable = getOption("progressr.enable"),
+            progressr.delay_stdout = getOption("progressr.delay_stdout")
+        )
+        on.exit(options(old_opts), add = TRUE)
+        is_nb <- !is.null(getOption("jupyter.in_kernel")) || Sys.getenv("JPY_PARENT_PID") != ""
+
+        if (quiet) {
+            progressr::handlers(character(0))
+        } else {
+            if (is_nb) {
+                options(progressr.enable = TRUE, progressr.delay_stdout = FALSE)
+                progressr::handlers(progressr::handler_txtprogressbar(file = stdout(), clear = FALSE))
+            } else {
+                progressr::handlers("txtprogressbar")
+            }
         }
-    )
+        
+        task_data_list <- lapply(group, function(g) {
+            list(
+                obj = DNB_output[[g]],
+                name = g
+            )
+        })
+        
+        DNB_output_new <- progressr::with_progress({
+            pb <- progressr::progressor(along = task_data_list)
+
+            future.apply::future_lapply(task_data_list, function(task) {
+                res <- DNBcomputeSingle(
+                    object = task$obj, 
+                    module_list = module_list,
+                    force_allgene = force_allgene,
+                    size_effect = size_effect,
+                    n_cores = inner_workers
+                )
+                pb(message = sprintf("Processed group: %s", task$name))
+                return(res)
+            })
+        })
+        
+    } else {
+        DNB_output_new <- lapply(
+            DNB_output,
+            function(DNB_obj) {
+                DNBcomputeSingle(
+                    object = DNB_obj, 
+                    module_list = module_list,
+                    force_allgene = force_allgene,
+                    size_effect = size_effect,
+                    n_cores = inner_workers
+                )
+            }
+        )
+    }
+    
     DNB_output_new <- mynew.DNB_output(
-        group = names(DNB_output_new),
+        group = group,
         list_obj = DNB_output_new
     )
 

@@ -32,7 +32,7 @@ or a matrix merging bulk GEMs from at least three different sample}
 
 \item{quiet}{do not message}
 
-\item{...}{not use}
+\item{...}{other params for DNBfilter()}
 }
 \value{
 S3:DNB_output

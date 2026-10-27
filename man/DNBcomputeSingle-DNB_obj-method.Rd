@@ -8,7 +8,8 @@
   object,
   module_list,
   force_allgene = FALSE,
-  size_effect = TRUE
+  size_effect = TRUE,
+  n_cores = 1
 )
 }
 \arguments{
@@ -19,6 +20,8 @@
 \item{force_allgene}{whether force to use all genes from data, default FALSE (use DNB_obj@used_gene)}
 
 \item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
+
+\item{n_cores}{number of cores for parallel computation, default 1 (serial)}
 }
 \description{
 DNBcomputeSingle for DNB_obj

@@ -35,6 +35,9 @@
 
 \item{...}{not use}
 }
+\value{
+plotScore()
+}
 \description{
 DNBplot for data.frame
 }

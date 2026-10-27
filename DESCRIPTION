@@ -1,11 +1,11 @@
 Package: DNBr
 Type: Package
 Title: Compute the Dynamic Network Biomarkers (DNB) model
-Version: 0.1.7
-Author: person(given = 'Kaiyu', family = 'Wang', role = 'aut', email = "wangkaiyu2020@sibcb.ac.cn")
-Maintainer: ChenLab in CAS <lnchen@sibs.ac.cn>
+Version: 0.1.8
+Author: person(given = 'Kaiyu', family = 'Wang', role = 'aut', email = "wangkaiyu201@mails.ucas.ac.cn")
+Maintainer: ChenLab <lnchen@sjtu.edu.cn>
 Description: Based on DNB theory, the package is designed to compute matrix data, such as that from several bulk-seq or scRNA-seq with multiple groups.
-License: GPL (>= 3)
+License: GPL (>= 3) | file LICENSE
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.2.1
@@ -13,6 +13,6 @@ Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
 NeedsCompilation: no
 Imports: ggplot2, cowplot, methods, stats, utils, reshape2, Matrix,
-        Hmisc
+        Hmisc, future, future.apply, progressr, parallel
 Depends: R (>= 2.10)
-Packaged: 2023-12-07 03:51:39 UTC; kaiyu
+Packaged: 2026-10-27 18:33:12 UTC; kaiyu

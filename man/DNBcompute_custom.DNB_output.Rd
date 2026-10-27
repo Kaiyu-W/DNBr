@@ -30,7 +30,7 @@
 
 \item{quiet}{do not message}
 
-\item{...}{not use}
+\item{...}{other params}
 }
 \value{
 S3:DNB_output

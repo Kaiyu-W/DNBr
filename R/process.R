@@ -17,6 +17,7 @@
 #' @param cluster_fun same to DNBcompute
 #' @param cluster_args same to DNBcompute
 #' @param size_effect same to DNBcompute
+#' @param n_cores inner number of cores used for parallel computation
 #'
 #'
 myprocess <- function(
@@ -34,7 +35,8 @@ myprocess <- function(
     fastMode,
     cluster_fun,
     cluster_args,
-    size_effect
+    size_effect,
+    n_cores = 1
 ) {
     mycat("\tProcess ...\n", quiet = quiet)
     data0 <- data
@@ -120,17 +122,49 @@ myprocess <- function(
     )
 
     mycat("\tCompute all modules' score ...\n", quiet = quiet)
-    if (fastMode) {
-        score_mtx_tmp <- sapply(
-            cut_sle_up2_1,
-            function(i) {
-                compute_score_eachgroup(
-                    cut_sle = cut_sle, group = i, diffgenes = diffgenes, hig_gene = hig_gene,
-                    sle_tab = sle_tab, cv_all = cv_all, sd_all = sd_all, mean_all = mean_all,
-                    minModule = minModule, maxModule = maxModule, size_effect = size_effect
-                )
-            }
-        )
+    if (fastMode && n_cores>1) {
+        # score_mtx_tmp <- sapply(
+        #     cut_sle_up2_1,
+        #     function(i) {
+        #         compute_score_eachgroup(
+        #             cut_sle = cut_sle, group = i, diffgenes = diffgenes, hig_gene = hig_gene,
+        #             sle_tab = sle_tab, cv_all = cv_all, sd_all = sd_all, mean_all = mean_all,
+        #             minModule = minModule, maxModule = maxModule, size_effect = size_effect
+        #         )
+        #     }
+        # )
+
+        optimal_plan <- if (is_windows_os()) future::multisession else future::multicore
+        old_plan_inner <- future::plan(optimal_plan, workers = n_cores)
+
+        # on.exit(future::plan(old_plan_inner), add = TRUE)
+        # score_list <- future.apply::future_lapply(
+        #     cut_sle_up2_1, 
+        #     function(i) {
+        #         compute_score_eachgroup(
+        #             cut_sle = cut_sle, group = i, diffgenes = diffgenes, hig_gene = hig_gene,
+        #             sle_tab = sle_tab, cv_all = cv_all, sd_all = sd_all, mean_all = mean_all,
+        #             minModule = minModule, maxModule = maxModule, size_effect = size_effect
+        #         )
+        #     }
+        # )
+
+        score_list <- tryCatch({
+            future.apply::future_lapply(
+                cut_sle_up2_1, 
+                function(i) {
+                    compute_score_eachgroup(
+                        cut_sle = cut_sle, group = i, diffgenes = diffgenes, hig_gene = hig_gene,
+                        sle_tab = sle_tab, cv_all = cv_all, sd_all = sd_all, mean_all = mean_all,
+                        minModule = minModule, maxModule = maxModule, size_effect = size_effect
+                    )
+                }
+            )
+        }, finally = {
+            future::plan(old_plan_inner)
+        })
+
+        score_mtx_tmp <- do.call(cbind, score_list)
         colnames(score_mtx_tmp) <- colnames(score_mtx)
         rownames(score_mtx_tmp) <- rownames(score_mtx)
         score_mtx <- score_mtx_tmp
@@ -268,6 +302,7 @@ compute_score_eachgroup <- function(
 #' @param module_list a list of module genes
 #' @param force_allgene whether force to use all genes from data, default FALSE (use DNB_obj@used_gene)
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
+#' @param n_cores number of cores for parallel computation, default 1 (serial)
 #'
 #' @return DNB_obj
 #'
@@ -275,7 +310,8 @@ DNBcomputeSingle_DNB_obj <- function(
     object, 
     module_list, 
     force_allgene = FALSE, 
-    size_effect = TRUE
+    size_effect = TRUE,
+    n_cores = 1
 ) {
     data <- object@data
     used_gene <- object@used_gene
@@ -286,7 +322,8 @@ DNBcomputeSingle_DNB_obj <- function(
     score_mtx <- singleDNB(
         data = if (force_allgene) data else data[used_gene, , drop = FALSE], 
         module_list = module_geneslist,
-        size_effect = size_effect
+        size_effect = size_effect,
+        n_cores = n_cores
     )
     Rank_all <- rank(-1 * score_mtx[6, ])
     
@@ -316,6 +353,7 @@ DNBcomputeSingle_DNB_obj <- function(
 #' @param module_list modules list
 #' @param cor_vec vector of correlation coefficient, when data has only one sample (col)
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
+#' @param n_cores number of cores for parallel computation, default 1 (serial)
 #'
 #' @return score matrix
 #'
@@ -323,7 +361,8 @@ singleDNB <- function(
     data,
     module_list, # module_list is a list
     cor_vec = NULL,
-    size_effect = TRUE
+    size_effect = TRUE,
+    n_cores = 1
 ) {
     # prepare data
     n_sample <- ncol(data)
@@ -344,77 +383,122 @@ singleDNB <- function(
         if (length(cor_vec) != length(all_genes))
             stop("cor_vec should be the same length of singleDNB!")
     }
-
-    # # define result
-    # score_mtx <- matrix(
-    #     0, nrow = 6, ncol = length(module_list),
-    #     dimnames = list(
-    #         c("Mean", "Sd", "cv", "pcc_in", "pcc_out", "score"),
-    #         names(module_list)
-    #     )
-    # )
-    score_row <- c("Mean", "Sd", "cv", "pcc_in", "pcc_out", "score")
-    score_col <- names(module_list)
     
+    # if (n_sample > 1) {
+    #     # base computation
+    #     data_tmp <- t(data)
+    #     sd_all <- apply(data_tmp, 2, sd)
+    #     mean_all <- apply(data_tmp, 2, mean)
+    #     cv_all <- sd_all / mean_all
+
+    #     # compute scores
+    #     score_mtx <- sapply(
+    #         module_list,
+    #         function(module_genes) {
+    #             dnb_in <- module_genes
+    #             dnb_out <- setdiff(all_genes, dnb_in)
+    #             tab_in <- data_tmp[, dnb_in, drop = F]
+    #             tab_out <- data_tmp[, dnb_out, drop = F]
+    #             size <- length(dnb_in)
+
+    #             Mean <- mean(mean_all[dnb_in])
+    #             Sd <- mean(sd_all[dnb_in])
+    #             cv <- mean(cv_all[dnb_in], na.rm = T) # if mean is zero, cv is not defined, so do not consider this one.
+    #             pcc_in <- mean(abs(as.dist(mycor(tab_in))), na.rm = T)
+    #             pcc_out <- mean(abs(mycor(tab_in, tab_out)), na.rm = T)
+    #             score <- CI(
+    #                 n = ifelse(size_effect, size, 1), 
+    #                 Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out
+    #             )
+
+    #             c(Mean, Sd, cv, pcc_in, pcc_out, score)
+    #         }
+    #     )
+    # } else {
+    #     # only one sample
+    #     data_tmp <- data[, 1, drop = T]
+    #     score_mtx <- sapply(
+    #         module_list,
+    #         function(module_genes) {
+    #             dnb_in <- module_genes
+    #             dnb_out <- setdiff(all_genes, dnb_in)
+    #             tab_in <- data_tmp[dnb_in]
+    #             tab_out <- data_tmp[dnb_out]
+    #             size <- length(dnb_in)
+
+    #             Mean <- mean(tab_in)
+    #             Sd <- sd(tab_in)
+    #             cv <- if (Mean == 0) NA else Sd / Mean
+    #             pcc_in <- mean(cor_vec[tab_in])
+    #             pcc_out <- mean(cor_vec[tab_out])
+    #             score <- CI(
+    #                 n = ifelse(size_effect, size, 1), 
+    #                 Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out
+    #             )
+
+    #             c(Mean, Sd, cv, pcc_in, pcc_out, score)
+    #         }
+    #     )
+    # }
+
     if (n_sample > 1) {
-        # base computation
         data_tmp <- t(data)
         sd_all <- apply(data_tmp, 2, sd)
         mean_all <- apply(data_tmp, 2, mean)
         cv_all <- sd_all / mean_all
-
-        # compute scores
-        score_mtx <- sapply(
-            module_list,
-            function(module_genes) {
-                dnb_in <- module_genes
-                dnb_out <- setdiff(all_genes, dnb_in)
-                tab_in <- data_tmp[, dnb_in, drop = F]
-                tab_out <- data_tmp[, dnb_out, drop = F]
-                size <- length(dnb_in)
-
-                Mean <- mean(mean_all[dnb_in])
-                Sd <- mean(sd_all[dnb_in])
-                cv <- mean(cv_all[dnb_in], na.rm = T) # if mean is zero, cv is not defined, so do not consider this one.
-                pcc_in <- mean(abs(as.dist(mycor(tab_in))), na.rm = T)
-                pcc_out <- mean(abs(mycor(tab_in, tab_out)), na.rm = T)
-                score <- CI(
-                    n = ifelse(size_effect, size, 1), 
-                    Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out
-                )
-
-                c(Mean, Sd, cv, pcc_in, pcc_out, score)
-            }
-        )
     } else {
-        # only one sample
         data_tmp <- data[, 1, drop = T]
-        score_mtx <- sapply(
-            module_list,
-            function(module_genes) {
-                dnb_in <- module_genes
-                dnb_out <- setdiff(all_genes, dnb_in)
-                tab_in <- data_tmp[dnb_in]
-                tab_out <- data_tmp[dnb_out]
-                size <- length(dnb_in)
-
-                Mean <- mean(tab_in)
-                Sd <- sd(tab_in)
-                cv <- if (Mean == 0) NA else Sd / Mean
-                pcc_in <- mean(cor_vec[tab_in])
-                pcc_out <- mean(cor_vec[tab_out])
-                score <- CI(
-                    n = ifelse(size_effect, size, 1), 
-                    Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out
-                )
-
-                c(Mean, Sd, cv, pcc_in, pcc_out, score)
-            }
+    }
+    compute_one_module_ <- function(module_genes) {
+        dnb_in <- module_genes
+        dnb_out <- setdiff(all_genes, dnb_in)
+        size <- length(dnb_in)
+        
+        if (n_sample > 1) {
+            tab_in <- data_tmp[, dnb_in, drop = F]
+            tab_out <- data_tmp[, dnb_out, drop = F]
+            
+            Mean <- mean(mean_all[dnb_in])
+            Sd <- mean(sd_all[dnb_in])
+            cv <- mean(cv_all[dnb_in], na.rm = T)  # if mean is zero, cv is not defined, so do not consider this one.
+            pcc_in <- mean(abs(as.dist(mycor(tab_in))), na.rm = T)
+            pcc_out <- mean(abs(mycor(tab_in, tab_out)), na.rm = T)
+        } else {
+            tab_in <- data_tmp[dnb_in]
+            tab_out <- data_tmp[dnb_out]
+            Mean <- mean(tab_in)
+            Sd <- sd(tab_in)
+            cv <- if (Mean == 0) NA else Sd / Mean
+            pcc_in <- mean(cor_vec[tab_in])
+            pcc_out <- mean(cor_vec[tab_out])
+        }
+        
+        score <- CI(
+            n = ifelse(size_effect, size, 1), 
+            Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out
         )
+        c(Mean, Sd, cv, pcc_in, pcc_out, score)
     }
 
-    rownames(score_mtx) <- score_row
-    colnames(score_mtx) <- score_col
+    if (n_cores > 1 && length(module_list) > 1) {
+        optimal_plan <- if (is_windows_os()) future::multisession else future::multicore
+        old_plan_inner <- future::plan(optimal_plan, workers = n_cores)
+
+        # on.exit(future::plan(old_plan_inner), add = TRUE)
+        # score_list <- future.apply::future_lapply(module_list, compute_one_module_)
+
+        score_list <- tryCatch({
+            future.apply::future_lapply(module_list, compute_one_module_)
+        }, finally = {
+            future::plan(old_plan_inner)
+        })
+    } else {
+        score_list <- lapply(module_list, compute_one_module_)
+    }
+    
+    score_mtx <- do.call(cbind, score_list)
+    rownames(score_mtx) <- c("Mean", "Sd", "cv", "pcc_in", "pcc_out", "score")
+    colnames(score_mtx) <- names(module_list)
 
     return(score_mtx)
 }
@@ -658,7 +742,7 @@ ScoreExtract.DNB_output <- function(
 #' @param force_allgene not use
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param quiet do not message
-#' @param ... not use
+#' @param ... other params for DNBfilter()
 #'
 #' @return S3:DNB_output
 #' @method DNBcompute_custom default
@@ -736,7 +820,7 @@ DNBcompute_custom.default <- function(
     }
     DNB_output <- mynew.DNB_output(group = meta_levels, list_obj = DNB_output)
 
-    DNB_output <- DNBfilter(DNB_output, ntop = module_len, size_effect = size_effect, quiet = quiet)
+    DNB_output <- DNBfilter(DNB_output, ntop = module_len, size_effect = size_effect, quiet = quiet, ...)
 
     return(DNB_output)
 }
@@ -751,7 +835,7 @@ DNBcompute_custom.default <- function(
 #' @param force_allgene whether force to use all genes from data, default TRUE
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param quiet do not message
-#' @param ... not use
+#' @param ... other params
 #'
 #' @return S3:DNB_output
 #' @method DNBcompute_custom DNB_output
@@ -798,7 +882,7 @@ DNBcompute_custom.DNB_output <- function(
     }
 
     # get meta
-    meta_tmp <- melt(meta_df, id.var = c())
+    meta_tmp <- reshape2::melt(meta_df, id.var = c())
     meta <- data.frame(meta_tmp$variable, row.names = meta_tmp$value)
 
     # compute DNB
@@ -807,7 +891,8 @@ DNBcompute_custom.DNB_output <- function(
         meta = meta, 
         module_list = module_list, 
         meta_levels = meta_levels,
-        size_effect = size_effect
+        size_effect = size_effect,
+        ...
     )
 
     # combine the new object into the old one

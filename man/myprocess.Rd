@@ -19,7 +19,8 @@ myprocess(
   fastMode,
   cluster_fun,
   cluster_args,
-  size_effect
+  size_effect,
+  n_cores = 1
 )
 }
 \arguments{
@@ -52,6 +53,8 @@ myprocess(
 \item{cluster_args}{same to DNBcompute}
 
 \item{size_effect}{same to DNBcompute}
+
+\item{n_cores}{inner number of cores used for parallel computation}
 }
 \description{
 the parameters come from inner DNBcompute

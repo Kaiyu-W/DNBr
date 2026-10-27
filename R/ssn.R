@@ -130,7 +130,7 @@ NetworkCreate <- function(
         # stats::cor() only output the correlation value
         # without p value
         # So use Hmisc::rcorr() to compute both two
-        cor_res <- rcorr(data_t, type = method)
+        cor_res <- Hmisc::rcorr(data_t, type = method)
 
         feature_network <- cor_res[c('r', 'P')]
     } else {

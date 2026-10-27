@@ -18,6 +18,7 @@ DNBcompute(
   maxModule = 60,
   quiet = FALSE,
   fastMode = FALSE,
+  n_cores = -1,
   writefile = FALSE,
   cluster_fun = NULL,
   cluster_args = NULL,
@@ -59,7 +60,9 @@ or a matrix merging bulk GEMs from at least three different sample}
 
 \item{quiet}{do not print output of process during calculation (against verbose), default FALSE}
 
-\item{fastMode}{avoid using for loop, rathan apply-like function, default FALSE; if TRUE, quiet will be set as TRUE}
+\item{fastMode}{avoid using for loop, rathan future-apply function, default FALSE; if TRUE, quiet will be set as TRUE}
+
+\item{n_cores}{number of cores used for nested-parallel computation, default -1 (use all available cores minus 1)}
 
 \item{writefile}{write results of each group into DNB_Module_information_xx.txt with tab delimiter, default FALSE}
 

@@ -9,6 +9,8 @@ DNBfilter(
   ntop,
   force_allgene = FALSE,
   size_effect = TRUE,
+  fastMode = FALSE,
+  n_cores = -1,
   quiet = FALSE
 )
 }
@@ -20,6 +22,10 @@ DNBfilter(
 \item{force_allgene}{whether force to use all genes from data, default FALSE (use the gene sets from output of DNBcompute)}
 
 \item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
+
+\item{fastMode}{avoid using for loop, rathan future-apply function, default FALSE}
+
+\item{n_cores}{number of cores used for nested-parallel computation, default -1 (use all available cores minus 1)}
 
 \item{quiet}{do not message}
 }
