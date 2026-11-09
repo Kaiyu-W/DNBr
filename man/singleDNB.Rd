@@ -10,7 +10,8 @@ singleDNB(
   cor_vec = NULL,
   size_effect = TRUE,
   n_cores = 1,
-  avoid_multicore = FALSE
+  avoid_multicore = FALSE,
+  precomputed_cor = FALSE
 )
 }
 \arguments{
@@ -18,13 +19,15 @@ singleDNB(
 
 \item{module_list}{modules list}
 
-\item{cor_vec}{vector of correlation coefficient, when data has only one sample (col)}
+\item{cor_vec}{named vector of correlation coefficient, when data has only one sample (col)}
 
 \item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
 
 \item{n_cores}{number of cores for parallel computation, default 1 (serial)}
 
 \item{avoid_multicore}{do not use future::multicore}
+
+\item{precomputed_cor}{use pre-compute full correlation matrix for speed (may cost much space and/or time)}
 }
 \value{
 score matrix

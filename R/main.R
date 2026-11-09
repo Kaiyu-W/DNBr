@@ -38,9 +38,7 @@
 #'   default FALSE (use future::multicore for unix-like os). 
 #' 
 #'   This may works with balances between stability (multisession) and memory&speed (multicore).
-#' @param only_inner_parallel use serial computation rather than outer parallel and all cores for inner parallel, 
-#' 
-#'   default FALSE (nested-parallel). 
+#' @param only_inner_parallel use serial computation rather than outer parallel and all cores for inner parallel, default FALSE
 #' @param writefile write results of each group into DNB_Module_information_xx.txt with tab delimiter, default FALSE
 #' @param cluster_fun customized function that user design for clustering to find module, 
 #' 
@@ -54,6 +52,17 @@
 #' @param cluster_args a list of extra arguments to the cluster_fun call. 
 #'   The names attribute of args gives the argument names. (same to base::do.call(args))
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
+#' @param precomputed_cor use pre-compute full correlation matrix for speed (may cost much space and/or time), default FALSE.
+#'   
+#'   Note: In parallel environments, pre-computing correlations for a large number of genes generates a large matrix/vector object.
+#'   
+#'   This may lead to serialization failures (e.g., "long vectors not supported")
+#'   
+#'   or significant memory overhead during data transfer to worker processes.
+#'   
+#'   If you encounter such errors or have limited memory, consider setting
+#'   
+#'   this to FALSE (on-demand calculation) or reducing n_cores to 1.
 #'
 #' @return S3:DNB_output
 #'
@@ -86,7 +95,8 @@ DNBcompute <- function(
     writefile = FALSE,
     cluster_fun = NULL,
     cluster_args = NULL,
-    size_effect = TRUE
+    size_effect = TRUE,
+    precomputed_cor = FALSE
 ) {
     high_method <- match.arg(high_method)
     cutree_method <- match.arg(cutree_method)
@@ -212,31 +222,8 @@ DNBcompute <- function(
     if (n_cores == 1) fastMode <- FALSE
 
     if (fastMode && !only_inner_parallel) {
-        # iii <- 0
-        # pb <- utils::txtProgressBar(style = 3)
-        # DNB_output <- lapply(
-        #     group,
-        #     function(group_tmp) {
-        #         data_tmp <- data[, rownames(meta)[meta[, 1] == group_tmp], drop = FALSE]
-        #         # data_tmp <- data.frame(data_tmp, check.names = FALSE)
-        #         cse <- myprocess(
-        #             data = data_tmp, assay_name = group_tmp, quiet = TRUE,
-        #             diffgenes = diffgenes, allgenes = allgenes,
-        #             high_method = high_method, high_cutoff = high_cutoff,
-        #             cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
-        #             minModule = minModule, maxModule = maxModule, fastMode = TRUE,
-        #             cluster_fun = cluster_fun, cluster_args = cluster_args, 
-        #             size_effect = size_effect
-        #         )
-        #         iii <<- iii + 1
-        #         utils::setTxtProgressBar(pb, iii / length(group))
-        #         return(cse)
-        #     }
-        # )
-        # close(pb)
-        # DNB_output <- mynew.DNB_output(group = group, list_obj = DNB_output)
-
-        old_plan <- future::plan(future::multisession, workers = n_cores)
+        optimal_plan <- future::multisession # if (is_windows_os() || avoid_multicore) future::multisession else future::multicore
+        old_plan <- future::plan(optimal_plan, workers = n_cores)
         on.exit(future::plan(old_plan), add = TRUE)
 
         old_handlers <- progressr::handlers()
@@ -271,16 +258,16 @@ DNBcompute <- function(
             pb <- progressr::progressor(along = task_data_list)
 
             future.apply::future_lapply(task_data_list, function(task) {
-                cse <- myprocess(
+                cse <- do.call(myprocess, list(
                     data = task$data, assay_name = task$name, quiet = TRUE,
                     diffgenes = diffgenes, allgenes = allgenes,
                     high_method = high_method, high_cutoff = high_cutoff,
                     cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
                     minModule = minModule, maxModule = maxModule, 
-                    fastMode = TRUE, avoid_multicore = avoid_multicore, n_cores = inner_workers,
+                    fastMode = inner_workers>1, avoid_multicore = avoid_multicore, n_cores = inner_workers,
                     cluster_fun = cluster_fun, cluster_args = cluster_args, 
-                    size_effect = size_effect
-                )
+                    size_effect = size_effect, precomputed_cor = precomputed_cor
+                ))
                 pb(message = sprintf("Processed group: %s", task$name))
                 return(cse)
             })
@@ -306,7 +293,7 @@ DNBcompute <- function(
                 fastMode = fastMode && only_inner_parallel, 
                 avoid_multicore = avoid_multicore, n_cores = inner_workers,
                 cluster_fun = cluster_fun, cluster_args = cluster_args,
-                size_effect = size_effect
+                size_effect = size_effect, precomputed_cor = precomputed_cor
             )
 
             cat(group_tmp, ' ends up successfully!\n', sep = '')
@@ -342,9 +329,18 @@ DNBcompute <- function(
 #' @param fastMode avoid using for loop, rathan future-apply function, default FALSE
 #' @param n_cores number of cores used for nested-parallel computation, default -1 (use all available cores minus 1)
 #' @param avoid_multicore do not use future::multicore, default FALSE
-#' @param only_inner_parallel use serial computation rather than outer parallel and all cores for inner parallel, 
-#' 
-#'   default FALSE (nested-parallel). 
+#' @param only_inner_parallel use serial computation rather than outer parallel and all cores for inner parallel, default FALSE
+#' @param precomputed_cor use pre-compute full correlation matrix for speed (may cost much space and/or time), default FALSE.
+#'   
+#'   Note: In parallel environments, pre-computing correlations for a large number of genes generates a large matrix/vector object.
+#'   
+#'   This may lead to serialization failures (e.g., "long vectors not supported")
+#'   
+#'   or significant memory overhead during data transfer to worker processes.
+#'   
+#'   If you encounter such errors or have limited memory, consider setting
+#'   
+#'   this to FALSE (on-demand calculation) or reducing n_cores to 1.
 #' @param quiet do not message
 #'
 #' @return S3:DNB_output
@@ -367,6 +363,7 @@ DNBfilter <- function(
     n_cores = -1,
     avoid_multicore = FALSE,
     only_inner_parallel = FALSE,
+    precomputed_cor = FALSE,
     quiet = FALSE
 ) {
     if (!is(DNB_output, "DNB_output"))
@@ -465,37 +462,38 @@ DNBfilter <- function(
         module_list[[i]] <- module_list[[i]][unique_index]
 
     # generate DNB_output@result
-    if (fastMode && !only_inner_parallel) {
-        old_plan <- future::plan(future::multisession, workers = n_cores)
-        on.exit(future::plan(old_plan), add = TRUE)
-        
-        old_handlers <- progressr::handlers()
-        on.exit(progressr::handlers(old_handlers), add = TRUE)
+    old_handlers <- progressr::handlers()
+    on.exit(progressr::handlers(old_handlers), add = TRUE)
 
-        old_opts <- options(
-            progressr.enable = getOption("progressr.enable"),
-            progressr.delay_stdout = getOption("progressr.delay_stdout")
-        )
-        on.exit(options(old_opts), add = TRUE)
-        is_nb <- !is.null(getOption("jupyter.in_kernel")) || Sys.getenv("JPY_PARENT_PID") != ""
+    old_opts <- options(
+        progressr.enable = getOption("progressr.enable"),
+        progressr.delay_stdout = getOption("progressr.delay_stdout")
+    )
+    on.exit(options(old_opts), add = TRUE)
+    is_nb <- !is.null(getOption("jupyter.in_kernel")) || Sys.getenv("JPY_PARENT_PID") != ""
 
-        if (quiet) {
-            progressr::handlers(character(0))
+    if (quiet) {
+        progressr::handlers(character(0))
+    } else {
+        if (is_nb) {
+            options(progressr.enable = TRUE, progressr.delay_stdout = FALSE)
+            progressr::handlers(progressr::handler_txtprogressbar(file = stdout(), clear = FALSE))
         } else {
-            if (is_nb) {
-                options(progressr.enable = TRUE, progressr.delay_stdout = FALSE)
-                progressr::handlers(progressr::handler_txtprogressbar(file = stdout(), clear = FALSE))
-            } else {
-                progressr::handlers("txtprogressbar")
-            }
+            progressr::handlers("txtprogressbar")
         }
-        
-        task_data_list <- lapply(group, function(g) {
-            list(
-                obj = DNB_output[[g]],
-                name = g
-            )
-        })
+    }
+    
+    task_data_list <- lapply(group, function(g) {
+        list(
+            obj = DNB_output[[g]],
+            name = g
+        )
+    })
+
+    if (fastMode && !only_inner_parallel) {
+        optimal_plan <- future::multisession # if (is_windows_os() || avoid_multicore) future::multisession else future::multicore
+        old_plan <- future::plan(optimal_plan, workers = n_cores)
+        on.exit(future::plan(old_plan), add = TRUE)
         
         DNB_output_new <- progressr::with_progress({
             pb <- progressr::progressor(along = task_data_list)
@@ -507,7 +505,8 @@ DNBfilter <- function(
                     force_allgene = force_allgene,
                     size_effect = size_effect,
                     n_cores = inner_workers,
-                    avoid_multicore = avoid_multicore
+                    avoid_multicore = avoid_multicore,
+                    precomputed_cor = precomputed_cor
                 )
                 pb(message = sprintf("Processed group: %s", task$name))
                 return(res)
@@ -515,19 +514,23 @@ DNBfilter <- function(
         })
         
     } else {
-        DNB_output_new <- lapply(
-            DNB_output,
-            function(DNB_obj) {
-                DNBcomputeSingle(
-                    object = DNB_obj, 
+        DNB_output_new <- progressr::with_progress({
+            pb <- progressr::progressor(along = task_data_list)
+
+            lapply(task_data_list, function(task) {
+                res <- DNBcomputeSingle(
+                    object = task$obj, 
                     module_list = module_list,
                     force_allgene = force_allgene,
                     size_effect = size_effect,
                     n_cores = inner_workers,
-                    avoid_multicore = avoid_multicore
+                    avoid_multicore = avoid_multicore,
+                    precomputed_cor = precomputed_cor
                 )
-            }
-        )
+                pb(message = sprintf("Processed group: %s", task$name))
+                return(res)
+            })
+        })
     }
     
     DNB_output_new <- mynew.DNB_output(
@@ -724,7 +727,7 @@ DNBplot <- function(
 #' @param force_allgene whether force to use all genes from data, default TRUE
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param quiet do not message
-#' @param ... for future use
+#' @param ... other options for function DNBfilter()
 #' 
 #' @return S3:DNB_output
 #'

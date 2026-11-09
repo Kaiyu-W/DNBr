@@ -5,29 +5,28 @@
 \title{process function after modules have been defined}
 \usage{
 compute_score_eachgroup(
-  cut_sle,
-  group,
-  diffgenes,
-  hig_gene,
-  sle_tab,
+  group_in,
+  group_all,
+  data,
   cv_all,
   sd_all,
   mean_all,
-  minModule,
-  maxModule,
-  size_effect
+  size_effect,
+  diffgenes = NULL,
+  minModule = NULL,
+  maxModule = NULL,
+  flat_cor_vec = NULL,
+  gene_to_idx = NULL,
+  precomputed_cor = FALSE,
+  cor_vec = NULL
 )
 }
 \arguments{
-\item{cut_sle}{module information table (cluster, which module each gene belongs to)}
+\item{group_in}{used gene group}
 
-\item{group}{group (assay_name)}
+\item{group_all}{all gene group}
 
-\item{diffgenes}{same to DNBcompute}
-
-\item{hig_gene}{same to DNBcompute}
-
-\item{sle_tab}{selected table}
+\item{data}{selected table}
 
 \item{cv_all}{all cv values}
 
@@ -35,11 +34,21 @@ compute_score_eachgroup(
 
 \item{mean_all}{all mean values}
 
+\item{size_effect}{same to DNBcompute}
+
+\item{diffgenes}{same to DNBcompute}
+
 \item{minModule}{same to DNBcompute}
 
 \item{maxModule}{same to DNBcompute}
 
-\item{size_effect}{same to DNBcompute}
+\item{flat_cor_vec}{pre-computed flattened correlation vector (upper triangle, no diagonal)}
+
+\item{gene_to_idx}{named integer vector mapping gene names to their indices}
+
+\item{precomputed_cor}{use pre-compute full correlation matrix for speed (may cost much space and/or time)}
+
+\item{cor_vec}{named vector of correlation coefficient, when data has only one sample (row)}
 }
 \description{
 the parameters come from inner DNBcompute

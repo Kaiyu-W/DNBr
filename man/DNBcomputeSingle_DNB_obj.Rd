@@ -10,7 +10,8 @@ DNBcomputeSingle_DNB_obj(
   force_allgene = FALSE,
   size_effect = TRUE,
   n_cores = 1,
-  avoid_multicore = FALSE
+  avoid_multicore = FALSE,
+  precomputed_cor = FALSE
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ DNBcomputeSingle_DNB_obj(
 \item{n_cores}{number of cores for parallel computation, default 1 (serial)}
 
 \item{avoid_multicore}{do not use future::multicore}
+
+\item{precomputed_cor}{use pre-compute full correlation matrix for speed (may cost much space and/or time)}
 }
 \value{
 DNB_obj

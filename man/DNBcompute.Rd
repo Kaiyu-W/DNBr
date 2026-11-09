@@ -20,11 +20,12 @@ DNBcompute(
   fastMode = FALSE,
   n_cores = -1,
   avoid_multicore = FALSE,
-  only_inner_parallel = FALSE,
+  only_inner_parallel = TRUE,
   writefile = FALSE,
   cluster_fun = NULL,
   cluster_args = NULL,
-  size_effect = TRUE
+  size_effect = TRUE,
+  precomputed_cor = FALSE
 )
 }
 \arguments{
@@ -72,9 +73,7 @@ or a matrix merging bulk GEMs from at least three different sample}
 
   This may works with balances between stability (multisession) and memory&speed (multicore).}
 
-\item{only_inner_parallel}{use serial computation rather than outer parallel and all cores for inner parallel, 
-
-  default FALSE (nested-parallel).}
+\item{only_inner_parallel}{use serial computation rather than outer parallel and all cores for inner parallel, default TRUE.}
 
 \item{writefile}{write results of each group into DNB_Module_information_xx.txt with tab delimiter, default FALSE}
 
@@ -92,6 +91,18 @@ or a matrix merging bulk GEMs from at least three different sample}
 The names attribute of args gives the argument names. (same to base::do.call(args))}
 
 \item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
+
+\item{precomputed_cor}{use pre-compute full correlation matrix for speed (may cost much space and/or time), default FALSE.
+
+Note: In parallel environments, pre-computing correlations for a large number of genes generates a large matrix/vector object.
+
+This may lead to serialization failures (e.g., "long vectors not supported")
+
+or significant memory overhead during data transfer to worker processes.
+
+If you encounter such errors or have limited memory, consider setting
+
+this to FALSE (on-demand calculation) or reducing n_cores to 1.}
 }
 \value{
 S3:DNB_output

@@ -252,6 +252,7 @@ setGeneric(
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param n_cores number of cores for parallel computation, default 1 (serial)
 #' @param avoid_multicore do not use future::multicore, default FALSE
+#' @param precomputed_cor use pre-compute full correlation matrix for speed (may cost much space and/or time)
 #'
 setMethod(
     "DNBcomputeSingle", signature(object = "DNB_obj"),
@@ -261,7 +262,8 @@ setMethod(
         force_allgene = FALSE, 
         size_effect = TRUE, 
         n_cores = 1,
-        avoid_multicore = FALSE
+        avoid_multicore = FALSE,
+        precomputed_cor = FALSE
     ) {
         DNBcomputeSingle_DNB_obj(
             object = object, 
@@ -269,7 +271,8 @@ setMethod(
             force_allgene = force_allgene, 
             size_effect = size_effect, 
             n_cores = n_cores,
-            avoid_multicore = avoid_multicore
+            avoid_multicore = avoid_multicore,
+            precomputed_cor = precomputed_cor
         )
     }
 )

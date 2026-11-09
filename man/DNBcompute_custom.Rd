@@ -32,7 +32,7 @@ use if data is gene expression matrix}
 
 \item{quiet}{do not message}
 
-\item{...}{for future use}
+\item{...}{other options for function DNBfilter()}
 }
 \value{
 S3:DNB_output

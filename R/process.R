@@ -19,6 +19,7 @@
 #' @param size_effect same to DNBcompute
 #' @param n_cores inner number of cores used for parallel computation
 #' @param avoid_multicore same to DNBcompute
+#' @param precomputed_cor use pre-compute full correlation matrix for speed (may cost much space and/or time)
 #'
 #'
 myprocess <- function(
@@ -38,11 +39,12 @@ myprocess <- function(
     cluster_args,
     size_effect,
     n_cores = 1,
-    avoid_multicore = FALSE
+    avoid_multicore = FALSE,
+    precomputed_cor = FALSE
 ) {
     mycat("\tProcess ...\n", quiet = quiet)
     data0 <- data
-    data <- t(data)
+    data <- t(data0)
 
     sd_all <- apply(data, 2, sd)
     mean_all <- apply(data, 2, mean)
@@ -56,21 +58,33 @@ myprocess <- function(
             hig_gene <- allgenes[1:high_cutoff]
         } else if (high_method == 'high_cv') {
             hig_num <- ceiling(length(cv_all) * high_cutoff) #cv cutoff
-            cv_rank <- sort(cv_all, decreasing = T, na.last = T)[1:hig_num]
+            cv_rank <- sort(cv_all, decreasing = TRUE, na.last = TRUE)[1:hig_num]
             hig_gene <- names(cv_rank)
         }
     }
     if (length(hig_gene) <= 1)
         stop("ERROR number of high gene! Only find one high gene or less!")
-    sle_tab <- data[, hig_gene, drop = F]
+    sle_tab <- data[, hig_gene, drop = FALSE]
 
     # calculate distance (pcc)
     cor_sle <- mycor(sle_tab, method = "pearson")
     diag(cor_sle) <- 0 # useless
     dis_sle <- 1 - abs(cor_sle)
     dist <- as.dist(dis_sle)
-    dist[is.na(dist)] <- max(dist, na.rm = T) * 1.01
 
+    flat_cor_vec <- NULL
+    gene_to_idx <- NULL
+    if (precomputed_cor) {
+        flat_cor_vec <- as.numeric(1 - dist)
+        gene_to_idx <- seq(hig_gene)
+        names(gene_to_idx) <- hig_gene
+        sle_tab <- NULL # free memory for compute_score_eachgroup
+    }
+    cor_sle <- NULL # free memory
+    rm(data)
+    
+    dist[is.na(dist)] <- max(dist, na.rm = TRUE) * 1.01
+    
     # clustering
     mycat("\tCluster...\n", quiet = quiet)
     if (is.null(cluster_fun)) {
@@ -125,41 +139,20 @@ myprocess <- function(
 
     mycat("\tCompute all modules' score ...\n", quiet = quiet)
     if (fastMode && n_cores>1) {
-        # score_mtx_tmp <- sapply(
-        #     cut_sle_up2_1,
-        #     function(i) {
-        #         compute_score_eachgroup(
-        #             cut_sle = cut_sle, group = i, diffgenes = diffgenes, hig_gene = hig_gene,
-        #             sle_tab = sle_tab, cv_all = cv_all, sd_all = sd_all, mean_all = mean_all,
-        #             minModule = minModule, maxModule = maxModule, size_effect = size_effect
-        #         )
-        #     }
-        # )
-
         optimal_plan <- if (is_windows_os() || avoid_multicore) future::multisession else future::multicore
         old_plan_inner <- future::plan(optimal_plan, workers = n_cores)
-
         # on.exit(future::plan(old_plan_inner), add = TRUE)
-        # score_list <- future.apply::future_lapply(
-        #     cut_sle_up2_1, 
-        #     function(i) {
-        #         compute_score_eachgroup(
-        #             cut_sle = cut_sle, group = i, diffgenes = diffgenes, hig_gene = hig_gene,
-        #             sle_tab = sle_tab, cv_all = cv_all, sd_all = sd_all, mean_all = mean_all,
-        #             minModule = minModule, maxModule = maxModule, size_effect = size_effect
-        #         )
-        #     }
-        # )
 
         score_list <- tryCatch({
             future.apply::future_lapply(
                 cut_sle_up2_1, 
                 function(i) {
-                    compute_score_eachgroup(
-                        cut_sle = cut_sle, group = i, diffgenes = diffgenes, hig_gene = hig_gene,
-                        sle_tab = sle_tab, cv_all = cv_all, sd_all = sd_all, mean_all = mean_all,
-                        minModule = minModule, maxModule = maxModule, size_effect = size_effect
-                    )
+                    do.call(compute_score_eachgroup, list(
+                        group_in = names(which(cut_sle == i)), group_all = hig_gene, data = sle_tab, 
+                        cv_all = cv_all, sd_all = sd_all, mean_all = mean_all, size_effect = size_effect,
+                        diffgenes = diffgenes, minModule = minModule, maxModule = maxModule,
+                        flat_cor_vec = flat_cor_vec, gene_to_idx = gene_to_idx, precomputed_cor = precomputed_cor
+                    ))
                 }
             )
         }, finally = {
@@ -177,9 +170,10 @@ myprocess <- function(
                 mycat("\t\tNow run ", i, "\n", sep = "", quiet = quiet)
 
             score_mtx[, count] <- compute_score_eachgroup(
-                cut_sle = cut_sle, group = i, diffgenes = diffgenes, hig_gene = hig_gene,
-                sle_tab = sle_tab, cv_all = cv_all, sd_all = sd_all, mean_all = mean_all,
-                minModule = minModule, maxModule = maxModule, size_effect = size_effect
+                group_in = names(which(cut_sle == i)), group_all = hig_gene, data = sle_tab, 
+                cv_all = cv_all, sd_all = sd_all, mean_all = mean_all, size_effect = size_effect,
+                diffgenes = diffgenes, minModule = minModule, maxModule = maxModule,
+                flat_cor_vec = flat_cor_vec, gene_to_idx = gene_to_idx, precomputed_cor = precomputed_cor
             )
         }
     }
@@ -247,53 +241,107 @@ myprocess <- function(
 #'
 #' @description the parameters come from inner DNBcompute
 #'
-#' @param cut_sle module information table (cluster, which module each gene belongs to)
-#' @param group group (assay_name)
-#' @param diffgenes same to DNBcompute
-#' @param hig_gene same to DNBcompute
-#' @param sle_tab selected table
+#' @param group_in used gene group
+#' @param group_all all gene group
+#' @param data selected table
 #' @param cv_all all cv values
 #' @param sd_all all sd values
 #' @param mean_all all mean values
+#' @param size_effect same to DNBcompute
+#' @param diffgenes same to DNBcompute
 #' @param minModule same to DNBcompute
 #' @param maxModule same to DNBcompute
-#' @param size_effect same to DNBcompute
+#' @param flat_cor_vec pre-computed flattened correlation vector (upper triangle, no diagonal)
+#' @param gene_to_idx named integer vector mapping gene names to their indices
+#' @param precomputed_cor use pre-compute full correlation matrix for speed (may cost much space and/or time)
+#' @param cor_vec named vector of correlation coefficient, when data has only one sample (row)
 #'
 compute_score_eachgroup <- function(
-    cut_sle,
-    group,
-    diffgenes,
-    hig_gene,
-    sle_tab,
+    group_in,
+    group_all,
+    data,
     cv_all,
     sd_all,
     mean_all,
-    minModule,
-    maxModule,
-    size_effect
+    size_effect,
+    diffgenes = NULL,
+    minModule = NULL,
+    maxModule = NULL,
+    flat_cor_vec = NULL,
+    gene_to_idx = NULL,
+    precomputed_cor = FALSE,
+    cor_vec = NULL
 ) {
-    group_name <- names(which(cut_sle == group))
-    group_out <- setdiff(hig_gene, group_name)
-    LenMODULE <- length(group_name)
-    Lendiff <- length(intersect(diffgenes, group_name))
-    bestModule <- Lendiff > 0 && LenMODULE > minModule && LenMODULE < maxModule
+    group_out <- setdiff(group_all, group_in)
+    LenHig <- length(group_all)
+    LenMODULE <- length(group_in)
 
-    size <- length(group_name)
+    bestModule <- TRUE
+    if (!is.null(diffgenes)) {
+        Lendiff <- length(intersect(diffgenes, group_in))
+        bestModule <- Lendiff > 0 && LenMODULE > minModule && LenMODULE < maxModule
+    }
 
-    tab_in <- sle_tab[, group_name, drop = F]
-    tab_out <- sle_tab[, group_out, drop = F]
+    n_sample <- if (is.null(data)) -1 else nrow(data)
 
-    # calculate parameters
-    cv <- mean(cv_all[group_name], na.rm = T)
-    Sd <- mean(sd_all[group_name])
-    Mean <- mean(mean_all[group_name])
-    pcc_in <- mean(abs(as.dist(mycor(tab_in))), na.rm = T)
-    pcc_out <- mean(abs(mycor(tab_in, tab_out)), na.rm = T)
-    score <- CI(
-        n = ifelse(size_effect, size, 1), 
-        Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out
-    )
+    if (n_sample==1) {
+        if (is.null(cor_vec))
+            stop("cor_vec is required when data has only one sample!")
+        if (length(cor_vec) != length(group_all))
+            stop("cor_vec should be the same length of group_all!")
 
+        data_tmp <- data[1, , drop = TRUE]
+        tab_in <- data_tmp[group_in]
+        tab_out <- data_tmp[group_out]
+        Mean <- mean(tab_in)
+        Sd <- sd(tab_in)
+        cv <- if (Mean == 0) NA else Sd / Mean
+        pcc_in <- mean(abs(cor_vec[group_in]), na.rm = TRUE)
+        pcc_out <- mean(abs(cor_vec[group_out]), na.rm = TRUE)
+    } else {
+        # calculate pcc
+        if (precomputed_cor) {
+            if (is.null(flat_cor_vec))
+                stop("flat_cor_vec is required when precomputed_cor=TRUE!")
+            if (is.null(gene_to_idx))
+                stop("gene_to_idx is required when precomputed_cor=TRUE!")
+
+            idx_in <- gene_to_idx[group_in]
+            idx_out <- gene_to_idx[group_out]
+
+            if (LenMODULE > 1) {
+                pairs_in <- combn(idx_in, 2)
+                k_in <- idx2flat(pairs_in[1, ], pairs_in[2, ], LenHig)
+                pcc_in <- mean(flat_cor_vec[k_in], na.rm = TRUE)
+            } else {
+                pcc_in <- 0
+            }
+
+            if (length(idx_out) > 0) {
+                grid_out <- expand.grid(idx_in, idx_out)
+                k_out <- idx2flat(grid_out[, 1], grid_out[, 2], LenHig)
+                pcc_out <- mean(flat_cor_vec[k_out], na.rm = TRUE)
+            } else {
+                pcc_out <- 0
+            }
+        } else {
+            tab_in <- data[, group_in, drop = FALSE]
+            tab_out <- data[, group_out, drop = FALSE]
+
+            pcc_in <- mean(abs(as.dist(mycor(tab_in, method = "pearson"))), na.rm = TRUE)
+            pcc_out <- mean(abs(mycor(tab_in, tab_out, method = "pearson")), na.rm = TRUE)
+        }
+
+        # calculate other parameters
+        cv <- mean(cv_all[group_in], na.rm = TRUE)
+        Sd <- mean(sd_all[group_in])
+        Mean <- mean(mean_all[group_in])
+        score <- CI(
+            n = ifelse(size_effect, LenMODULE, 1), 
+            Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out
+        )
+    }
+    
     res <- c(Mean, Sd, cv, pcc_in, pcc_out, score, bestModule)
     return(res)
 }
@@ -306,6 +354,7 @@ compute_score_eachgroup <- function(
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param n_cores number of cores for parallel computation, default 1 (serial)
 #' @param avoid_multicore do not use future::multicore
+#' @param precomputed_cor use pre-compute full correlation matrix for speed (may cost much space and/or time)
 #'
 #' @return DNB_obj
 #'
@@ -315,7 +364,8 @@ DNBcomputeSingle_DNB_obj <- function(
     force_allgene = FALSE, 
     size_effect = TRUE,
     n_cores = 1,
-    avoid_multicore = FALSE
+    avoid_multicore = FALSE,
+    precomputed_cor = FALSE
 ) {
     data <- object@data
     used_gene <- object@used_gene
@@ -328,7 +378,8 @@ DNBcomputeSingle_DNB_obj <- function(
         module_list = module_geneslist,
         size_effect = size_effect,
         n_cores = n_cores,
-        avoid_multicore = avoid_multicore
+        avoid_multicore = avoid_multicore,
+        precomputed_cor = precomputed_cor
     )
     Rank_all <- rank(-1 * score_mtx[6, ])
     
@@ -356,10 +407,11 @@ DNBcomputeSingle_DNB_obj <- function(
 #'
 #' @param data data
 #' @param module_list modules list
-#' @param cor_vec vector of correlation coefficient, when data has only one sample (col)
+#' @param cor_vec named vector of correlation coefficient, when data has only one sample (col)
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param n_cores number of cores for parallel computation, default 1 (serial)
 #' @param avoid_multicore do not use future::multicore
+#' @param precomputed_cor use pre-compute full correlation matrix for speed (may cost much space and/or time)
 #'
 #' @return score matrix
 #'
@@ -369,10 +421,12 @@ singleDNB <- function(
     cor_vec = NULL,
     size_effect = TRUE,
     n_cores = 1,
-    avoid_multicore = FALSE
+    avoid_multicore = FALSE,
+    precomputed_cor = FALSE
 ) {
     # prepare data
     n_sample <- ncol(data)
+    n_gene <- nrow(data)
     all_genes <- rownames(data)
     all_module_genes <- unlist(module_list)
     if (!all(all_module_genes %in% all_genes)) {
@@ -383,108 +437,53 @@ singleDNB <- function(
             function(x) setdiff(x, drop_module_genes)
         )
     }
-    
-    if (n_sample == 1) {
-        if (is.null(cor_vec))
-            stop("cor_vec is required when data has only one sample!")
-        if (length(cor_vec) != length(all_genes))
-            stop("cor_vec should be the same length of singleDNB!")
-    }
-    
-    # if (n_sample > 1) {
-    #     # base computation
-    #     data_tmp <- t(data)
-    #     sd_all <- apply(data_tmp, 2, sd)
-    #     mean_all <- apply(data_tmp, 2, mean)
-    #     cv_all <- sd_all / mean_all
-
-    #     # compute scores
-    #     score_mtx <- sapply(
-    #         module_list,
-    #         function(module_genes) {
-    #             dnb_in <- module_genes
-    #             dnb_out <- setdiff(all_genes, dnb_in)
-    #             tab_in <- data_tmp[, dnb_in, drop = F]
-    #             tab_out <- data_tmp[, dnb_out, drop = F]
-    #             size <- length(dnb_in)
-
-    #             Mean <- mean(mean_all[dnb_in])
-    #             Sd <- mean(sd_all[dnb_in])
-    #             cv <- mean(cv_all[dnb_in], na.rm = T) # if mean is zero, cv is not defined, so do not consider this one.
-    #             pcc_in <- mean(abs(as.dist(mycor(tab_in))), na.rm = T)
-    #             pcc_out <- mean(abs(mycor(tab_in, tab_out)), na.rm = T)
-    #             score <- CI(
-    #                 n = ifelse(size_effect, size, 1), 
-    #                 Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out
-    #             )
-
-    #             c(Mean, Sd, cv, pcc_in, pcc_out, score)
-    #         }
-    #     )
-    # } else {
-    #     # only one sample
-    #     data_tmp <- data[, 1, drop = T]
-    #     score_mtx <- sapply(
-    #         module_list,
-    #         function(module_genes) {
-    #             dnb_in <- module_genes
-    #             dnb_out <- setdiff(all_genes, dnb_in)
-    #             tab_in <- data_tmp[dnb_in]
-    #             tab_out <- data_tmp[dnb_out]
-    #             size <- length(dnb_in)
-
-    #             Mean <- mean(tab_in)
-    #             Sd <- sd(tab_in)
-    #             cv <- if (Mean == 0) NA else Sd / Mean
-    #             pcc_in <- mean(cor_vec[tab_in])
-    #             pcc_out <- mean(cor_vec[tab_out])
-    #             score <- CI(
-    #                 n = ifelse(size_effect, size, 1), 
-    #                 Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out
-    #             )
-
-    #             c(Mean, Sd, cv, pcc_in, pcc_out, score)
-    #         }
-    #     )
-    # }
 
     if (n_sample > 1) {
         data_tmp <- t(data)
         sd_all <- apply(data_tmp, 2, sd)
         mean_all <- apply(data_tmp, 2, mean)
         cv_all <- sd_all / mean_all
-    } else {
-        data_tmp <- data[, 1, drop = T]
-    }
-    compute_one_module_ <- function(module_genes) {
-        dnb_in <- module_genes
-        dnb_out <- setdiff(all_genes, dnb_in)
-        size <- length(dnb_in)
-        
-        if (n_sample > 1) {
-            tab_in <- data_tmp[, dnb_in, drop = F]
-            tab_out <- data_tmp[, dnb_out, drop = F]
-            
-            Mean <- mean(mean_all[dnb_in])
-            Sd <- mean(sd_all[dnb_in])
-            cv <- mean(cv_all[dnb_in], na.rm = T)  # if mean is zero, cv is not defined, so do not consider this one.
-            pcc_in <- mean(abs(as.dist(mycor(tab_in))), na.rm = T)
-            pcc_out <- mean(abs(mycor(tab_in, tab_out)), na.rm = T)
-        } else {
-            tab_in <- data_tmp[dnb_in]
-            tab_out <- data_tmp[dnb_out]
-            Mean <- mean(tab_in)
-            Sd <- sd(tab_in)
-            cv <- if (Mean == 0) NA else Sd / Mean
-            pcc_in <- mean(cor_vec[tab_in])
-            pcc_out <- mean(cor_vec[tab_out])
+        flat_cor_vec <- NULL
+        gene_to_idx <- NULL
+
+        if (precomputed_cor) {
+            cor_full <- mycor(data, method = "pearson")
+            flat_cor_vec <- abs(as.numeric(as.dist(cor_full)))
+            gene_to_idx <- seq(n_gene)
+            names(gene_to_idx) <- all_genes
+
+            data_tmp <- NULL # free memory
         }
-        
-        score <- CI(
-            n = ifelse(size_effect, size, 1), 
-            Sd = Sd, pcc_in = pcc_in, pcc_out = pcc_out
-        )
-        c(Mean, Sd, cv, pcc_in, pcc_out, score)
+    } else {
+        if (is.null(cor_vec))
+            stop("cor_vec is required when data has only one sample!")
+        if (length(cor_vec) != n_gene)
+            stop("cor_vec should be the same length of singleDNB!")
+        data_tmp <- data[, 1, drop = TRUE]
+        sd_all <- NULL
+        cv_all <- NULL
+        mean_all <- NULL
+        flat_cor_vec <- NULL
+        gene_to_idx <- NULL
+    }
+
+    work_func <- function(module_genes) {
+        do.call(compute_score_eachgroup, list(
+            group_in = module_genes,
+            group_all = all_genes,
+            data = data_tmp,
+            cv_all = cv_all,
+            sd_all = sd_all,
+            mean_all = mean_all,
+            diffgenes = NULL,
+            minModule = NULL,
+            maxModule = NULL,
+            size_effect = size_effect,
+            flat_cor_vec = flat_cor_vec,
+            gene_to_idx = gene_to_idx,
+            precomputed_cor = precomputed_cor,
+            cor_vec = cor_vec
+        ))[1:6]
     }
 
     if (n_cores > 1 && length(module_list) > 1) {
@@ -492,15 +491,15 @@ singleDNB <- function(
         old_plan_inner <- future::plan(optimal_plan, workers = n_cores)
 
         # on.exit(future::plan(old_plan_inner), add = TRUE)
-        # score_list <- future.apply::future_lapply(module_list, compute_one_module_)
+        # score_list <- future.apply::future_lapply(module_list, work_func)
 
         score_list <- tryCatch({
-            future.apply::future_lapply(module_list, compute_one_module_)
+            future.apply::future_lapply(module_list, work_func)
         }, finally = {
             future::plan(old_plan_inner)
         })
     } else {
-        score_list <- lapply(module_list, compute_one_module_)
+        score_list <- lapply(module_list, work_func)
     }
     
     score_mtx <- do.call(cbind, score_list)
@@ -783,19 +782,19 @@ DNBcompute_custom.default <- function(
             stop("ERROR meta_levels! Should be equal to meta!")
 
     if (is.null(meta_levels)) {
-        meta <- meta[order(meta[, 1], decreasing = T), , drop = F]
+        meta <- meta[order(meta[, 1], decreasing = TRUE), , drop = FALSE]
         meta_levels <- unique(meta[, 1])
     } else {
-        meta_tmp <- meta[1, , drop = F]
+        meta_tmp <- meta[1, , drop = FALSE]
         rownames(meta_tmp) <- 'NA'
         for (i in meta_levels) {
-            meta_tmp_tmp <- meta[meta[, 1] == i, , drop = F]
-            meta_tmp_tmp <- meta_tmp_tmp[order(rownames(meta_tmp_tmp), decreasing = T), , drop = F]
+            meta_tmp_tmp <- meta[meta[, 1] == i, , drop = FALSE]
+            meta_tmp_tmp <- meta_tmp_tmp[order(rownames(meta_tmp_tmp), decreasing = TRUE), , drop = FALSE]
             meta_tmp <- rbind(meta_tmp, meta_tmp_tmp)
         }
-        meta <- meta_tmp[-1, , drop = F]
+        meta <- meta_tmp[-1, , drop = FALSE]
     }
-    data <- data[, rownames(meta), drop = F]
+    data <- data[, rownames(meta), drop = FALSE]
 
     module_len <- length(module_list)
     if (module_len == 0) 

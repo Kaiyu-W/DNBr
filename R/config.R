@@ -58,3 +58,18 @@ mycat <- function(..., quiet = FALSE) {
 is_windows_os <- function() {
     tolower(Sys.info()["sysname"]) == "windows"
 }
+
+
+#' convert gene pair indices to flat vector index (for as.dist output)
+#'
+#' @param i integer vector representing the row indices of gene pairs
+#' @param j integer vector representing the column indices of gene pairs
+#' @param N the total number of genes (dimension of the original square matrix)
+#'
+#' @return An integer vector of positions in the flat correlation vector.
+#'
+idx2flat <- function(i, j, N) {
+    r <- pmax(i, j)
+    c <- pmin(i, j)
+    as.integer((c - 1L) * N - (c * (c - 1L)) / 2L + r - c)
+}

@@ -1,7 +1,7 @@
 Package: DNBr
 Type: Package
 Title: Compute the Dynamic Network Biomarkers (DNB) model
-Version: 0.1.8
+Version: 0.1.9
 Author: person(given = 'Kaiyu', family = 'Wang', role = 'aut', email = "wangkaiyu201@mails.ucas.ac.cn")
 Maintainer: ChenLab <lnchen@sjtu.edu.cn>
 Description: Based on DNB theory, the package is designed to compute matrix data, such as that from several bulk-seq or scRNA-seq with multiple groups.
@@ -15,4 +15,4 @@ NeedsCompilation: no
 Imports: ggplot2, cowplot, methods, stats, utils, reshape2, Matrix,
         Hmisc, future, future.apply, progressr, parallel
 Depends: R (>= 2.10)
-Packaged: 2026-10-27 20:54:41 UTC; kaiyu
+Packaged: 2026-11-09 16:25:20 UTC; kaiyu

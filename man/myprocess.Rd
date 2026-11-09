@@ -21,7 +21,8 @@ myprocess(
   cluster_args,
   size_effect,
   n_cores = 1,
-  avoid_multicore = FALSE
+  avoid_multicore = FALSE,
+  precomputed_cor = FALSE
 )
 }
 \arguments{
@@ -58,6 +59,8 @@ myprocess(
 \item{n_cores}{inner number of cores used for parallel computation}
 
 \item{avoid_multicore}{same to DNBcompute}
+
+\item{precomputed_cor}{use pre-compute full correlation matrix for speed (may cost much space and/or time)}
 }
 \description{
 the parameters come from inner DNBcompute

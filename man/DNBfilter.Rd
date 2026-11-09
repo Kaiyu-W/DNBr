@@ -12,7 +12,8 @@ DNBfilter(
   fastMode = FALSE,
   n_cores = -1,
   avoid_multicore = FALSE,
-  only_inner_parallel = FALSE,
+  only_inner_parallel = TRUE,
+  precomputed_cor = FALSE,
   quiet = FALSE
 )
 }
@@ -31,9 +32,19 @@ DNBfilter(
 
 \item{avoid_multicore}{do not use future::multicore, default FALSE}
 
-\item{only_inner_parallel}{use serial computation rather than outer parallel and all cores for inner parallel, 
+\item{only_inner_parallel}{use serial computation rather than outer parallel and all cores for inner parallel, default TRUE.}
 
-  default FALSE (nested-parallel).}
+\item{precomputed_cor}{use pre-compute full correlation matrix for speed (may cost much space and/or time), default FALSE.
+
+Note: In parallel environments, pre-computing correlations for a large number of genes generates a large matrix/vector object.
+
+This may lead to serialization failures (e.g., "long vectors not supported")
+
+or significant memory overhead during data transfer to worker processes.
+
+If you encounter such errors or have limited memory, consider setting
+
+this to FALSE (on-demand calculation) or reducing n_cores to 1.}
 
 \item{quiet}{do not message}
 }
