@@ -499,7 +499,7 @@ DNBfilter <- function(
             pb <- progressr::progressor(along = task_data_list)
 
             future.apply::future_lapply(task_data_list, function(task) {
-                res <- DNBcomputeSingle(
+                res <- do.call(DNBcomputeSingle, list(
                     object = task$obj, 
                     module_list = module_list,
                     force_allgene = force_allgene,
@@ -507,7 +507,7 @@ DNBfilter <- function(
                     n_cores = inner_workers,
                     avoid_multicore = avoid_multicore,
                     precomputed_cor = precomputed_cor
-                )
+                ))
                 pb(message = sprintf("Processed group: %s", task$name))
                 return(res)
             })
