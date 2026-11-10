@@ -13,6 +13,6 @@ Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
 NeedsCompilation: no
 Imports: ggplot2, cowplot, methods, stats, utils, reshape2, Matrix,
-        Hmisc, future, future.apply, progressr, parallel
+        Hmisc, future, future.apply, parallel
 Depends: R (>= 2.10)
 Packaged: 2026-11-10 09:56:34 UTC; kaiyu
