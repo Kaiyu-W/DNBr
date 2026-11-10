@@ -137,6 +137,13 @@ myprocess <- function(
         )
     )
 
+    param_list <- list(
+        group_all = hig_gene, data = sle_tab, 
+        cv_all = cv_all, sd_all = sd_all, mean_all = mean_all, size_effect = size_effect,
+        diffgenes = diffgenes, minModule = minModule, maxModule = maxModule,
+        flat_cor_vec = flat_cor_vec, gene_to_idx = gene_to_idx, precomputed_cor = precomputed_cor
+    )
+
     mycat("\tCompute all modules' score ...\n", quiet = quiet)
     if (fastMode && n_cores>1) {
         optimal_plan <- if (is_windows_os() || avoid_multicore) future::multisession else future::multicore
@@ -146,14 +153,13 @@ myprocess <- function(
         score_list <- tryCatch({
             future.apply::future_lapply(
                 cut_sle_up2_1, 
-                function(i) {
-                    do.call(compute_score_eachgroup, list(
-                        group_in = names(which(cut_sle == i)), group_all = hig_gene, data = sle_tab, 
-                        cv_all = cv_all, sd_all = sd_all, mean_all = mean_all, size_effect = size_effect,
-                        diffgenes = diffgenes, minModule = minModule, maxModule = maxModule,
-                        flat_cor_vec = flat_cor_vec, gene_to_idx = gene_to_idx, precomputed_cor = precomputed_cor
-                    ))
-                }
+                function(i, params) {
+                    do.call(
+                        compute_score_eachgroup, 
+                        c(list(group_in = names(which(cut_sle == i))), params)
+                    )
+                },
+                params = param_list
             )
         }, finally = {
             future::plan(old_plan_inner)
@@ -169,11 +175,9 @@ myprocess <- function(
             if (i %% 50 == 0)
                 mycat("\t\tNow run ", i, "\n", sep = "", quiet = quiet)
 
-            score_mtx[, count] <- compute_score_eachgroup(
-                group_in = names(which(cut_sle == i)), group_all = hig_gene, data = sle_tab, 
-                cv_all = cv_all, sd_all = sd_all, mean_all = mean_all, size_effect = size_effect,
-                diffgenes = diffgenes, minModule = minModule, maxModule = maxModule,
-                flat_cor_vec = flat_cor_vec, gene_to_idx = gene_to_idx, precomputed_cor = precomputed_cor
+            score_mtx[, count] <- do.call(
+                compute_score_eachgroup, 
+                c(list(group_in = names(which(cut_sle == i))), param_list)
             )
         }
     }
@@ -467,24 +471,27 @@ singleDNB <- function(
         gene_to_idx <- NULL
     }
 
-    work_func <- function(module_genes) {
-        do.call(compute_score_eachgroup, list(
-            group_in = module_genes,
-            group_all = all_genes,
-            data = data_tmp,
-            cv_all = cv_all,
-            sd_all = sd_all,
-            mean_all = mean_all,
-            diffgenes = NULL,
-            minModule = NULL,
-            maxModule = NULL,
-            size_effect = size_effect,
-            flat_cor_vec = flat_cor_vec,
-            gene_to_idx = gene_to_idx,
-            precomputed_cor = precomputed_cor,
-            cor_vec = cor_vec
-        ))[1:6]
+    work_func <- function(module_genes, params) {
+        do.call(
+            compute_score_eachgroup, 
+            c(list(group_in = module_genes), params)
+        )[1:6]
     }
+    param_list <- list(
+        group_all = all_genes,
+        data = data_tmp,
+        cv_all = cv_all,
+        sd_all = sd_all,
+        mean_all = mean_all,
+        diffgenes = NULL,
+        minModule = NULL,
+        maxModule = NULL,
+        size_effect = size_effect,
+        flat_cor_vec = flat_cor_vec,
+        gene_to_idx = gene_to_idx,
+        precomputed_cor = precomputed_cor,
+        cor_vec = cor_vec
+    )
 
     if (n_cores > 1 && length(module_list) > 1) {
         optimal_plan <- if (is_windows_os() || avoid_multicore) future::multisession else future::multicore
@@ -494,12 +501,12 @@ singleDNB <- function(
         # score_list <- future.apply::future_lapply(module_list, work_func)
 
         score_list <- tryCatch({
-            future.apply::future_lapply(module_list, work_func)
+            future.apply::future_lapply(module_list, work_func, params=param_list)
         }, finally = {
             future::plan(old_plan_inner)
         })
     } else {
-        score_list <- lapply(module_list, work_func)
+        score_list <- lapply(module_list, work_func, params=param_list)
     }
     
     score_mtx <- do.call(cbind, score_list)

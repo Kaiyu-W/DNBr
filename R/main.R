@@ -101,8 +101,10 @@ DNBcompute <- function(
     high_method <- match.arg(high_method)
     cutree_method <- match.arg(cutree_method)
 
-    if (fastMode & !quiet)
+    if (fastMode & !quiet) {
         message("quiet will be set as TRUE if fastMode set as TRUE!")
+        quiet <- TRUE
+    }
     
     # step1. parameters config
     # if (!is.matrix(data) && !is.data.frame(data))
@@ -176,12 +178,8 @@ DNBcompute <- function(
         group <- meta_levels
     }
     data <- data[, rownames(meta), drop = F]
-    
-    # step2. initiate result
-    DNB_output <- mynew.DNB_output(group = group)
 
-
-    # step3. process computation in order of meta
+    # step2. process computation in order of meta
     # check workers
     if (fastMode) {
         if (is.null(n_cores) || n_cores < 1) {
@@ -221,99 +219,105 @@ DNBcompute <- function(
     }
     if (n_cores == 1) fastMode <- FALSE
 
+    work_func <- function(task, params, quiet_) {
+        mycat('Now run ', task$name, '\n', sep = '', quiet = quiet_)
+        cse <- do.call(
+            myprocess, 
+            c(list(data = task$data, assay_name = task$name), params)
+        )
+        mycat(task$name, ' ends up successfully!\n', sep = '', quiet = quiet_)
+        return(cse)
+    }
+    task_data_list <- lapply(group, function(g) {
+        list(
+            data = data[, rownames(meta)[meta[, 1] == g], drop = FALSE],
+            name = g
+        )
+    })
+    param_list <- list(
+        diffgenes = diffgenes, allgenes = allgenes,
+        high_method = high_method, high_cutoff = high_cutoff,
+        cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
+        minModule = minModule, maxModule = maxModule, 
+        avoid_multicore = avoid_multicore, n_cores = inner_workers,
+        cluster_fun = cluster_fun, cluster_args = cluster_args, 
+        size_effect = size_effect, precomputed_cor = precomputed_cor, 
+        quiet = quiet
+    )
+
     if (fastMode && !only_inner_parallel) {
-        optimal_plan <- future::multisession # if (is_windows_os() || avoid_multicore) future::multisession else future::multicore
+        optimal_plan <- if (is_windows_os() || avoid_multicore) future::multisession else future::multicore
         old_plan <- future::plan(optimal_plan, workers = n_cores)
         on.exit(future::plan(old_plan), add = TRUE)
 
-        old_handlers <- progressr::handlers()
-        on.exit(progressr::handlers(old_handlers), add = TRUE)
+        # progressr works bad with future.apply, so do NOT use it
+        # old_handlers <- progressr::handlers()
+        # on.exit(progressr::handlers(old_handlers), add = TRUE)
+        # old_opts <- options(
+        #     progressr.enable = getOption("progressr.enable"),
+        #     progressr.delay_stdout = getOption("progressr.delay_stdout")
+        # )
+        # on.exit(options(old_opts), add = TRUE)
+        # is_nb <- !is.null(getOption("jupyter.in_kernel")) || Sys.getenv("JPY_PARENT_PID") != ""
+        # if (quiet) {
+        #     progressr::handlers(character(0))
+        # } else {
+        #     if (is_nb) {
+        #         options(progressr.enable = TRUE, progressr.delay_stdout = FALSE)
+        #         progressr::handlers(progressr::handler_txtprogressbar(file = stdout(), clear = FALSE))
+        #     } else {
+        #         progressr::handlers("txtprogressbar")
+        #     }
+        # }
 
-        old_opts <- options(
-            progressr.enable = getOption("progressr.enable"),
-            progressr.delay_stdout = getOption("progressr.delay_stdout")
+        # DNB_output_list <- progressr::with_progress({
+        #     pb <- progressr::progressor(along = task_data_list)
+
+        #     future.apply::future_lapply(
+        #         task_data_list, 
+        #         function(task, params) {
+        #             cse <- do.call(myprocess, c(params, list(
+        #                 data = task$data, 
+        #                 assay_name = task$name
+        #             )))
+        #             pb(message = sprintf("Processed group: %s", task$name))
+        #             return(cse)
+        #         },
+        #         params = c(param_list, fastMode = inner_workers>1, quiet = TRUE)
+        #     )
+        # })
+
+        DNB_output_list <- future.apply::future_lapply(
+            task_data_list, 
+            work_func,
+            params = c(param_list, fastMode = inner_workers>1),
+            quiet_ = FALSE
         )
-        on.exit(options(old_opts), add = TRUE)
-        is_nb <- !is.null(getOption("jupyter.in_kernel")) || Sys.getenv("JPY_PARENT_PID") != ""
-
-        if (quiet) {
-            progressr::handlers(character(0))
-        } else {
-            if (is_nb) {
-                options(progressr.enable = TRUE, progressr.delay_stdout = FALSE)
-                progressr::handlers(progressr::handler_txtprogressbar(file = stdout(), clear = FALSE))
-            } else {
-                progressr::handlers("txtprogressbar")
-            }
-        }
-
-        task_data_list <- lapply(group, function(g) {
-            list(
-                data = data[, rownames(meta)[meta[, 1] == g], drop = FALSE],
-                name = g
-            )
-        })
-
-        DNB_output_list <- progressr::with_progress({
-            pb <- progressr::progressor(along = task_data_list)
-
-            future.apply::future_lapply(task_data_list, function(task) {
-                cse <- do.call(myprocess, list(
-                    data = task$data, assay_name = task$name, quiet = TRUE,
-                    diffgenes = diffgenes, allgenes = allgenes,
-                    high_method = high_method, high_cutoff = high_cutoff,
-                    cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
-                    minModule = minModule, maxModule = maxModule, 
-                    fastMode = inner_workers>1, avoid_multicore = avoid_multicore, n_cores = inner_workers,
-                    cluster_fun = cluster_fun, cluster_args = cluster_args, 
-                    size_effect = size_effect, precomputed_cor = precomputed_cor
-                ))
-                pb(message = sprintf("Processed group: %s", task$name))
-                return(cse)
-            })
-        })
-        
-        DNB_output <- mynew.DNB_output(group = group, list_obj = DNB_output_list)
-        
     } else {
-        for (group_tmp in group) {
-            cat('Now run ', group_tmp, '\n', sep = '')
-
-            # subset data
-            data_tmp <- data[, rownames(meta)[meta[, 1] == group_tmp], drop = FALSE]
-            # data_tmp <- data.frame(data_tmp, check.names = FALSE)
-
-            # process sub-data
-            DNB_output[[group_tmp]] <- myprocess(
-                data = data_tmp, assay_name = group_tmp, quiet = quiet,
-                diffgenes = diffgenes, allgenes = allgenes,
-                high_method = high_method, high_cutoff = high_cutoff,
-                cutree_method = cutree_method, cutree_cutoff = cutree_cutoff,
-                minModule = minModule, maxModule = maxModule, 
-                fastMode = fastMode && only_inner_parallel, 
-                avoid_multicore = avoid_multicore, n_cores = inner_workers,
-                cluster_fun = cluster_fun, cluster_args = cluster_args,
-                size_effect = size_effect, precomputed_cor = precomputed_cor
-            )
-
-            cat(group_tmp, ' ends up successfully!\n', sep = '')
-        }
+        DNB_output_list <- lapply(
+            task_data_list, 
+            work_func,
+            params = c(param_list, fastMode = fastMode && only_inner_parallel),
+            quiet_ = quiet
+        )
     }
 
-    # step4. write output into files
+    DNB_output <- mynew.DNB_output(group = group, list_obj = DNB_output_list)
+
+    # step3. write output into files
     if (writefile)
         lapply(
             names(DNB_output),
             function(x) {
                 file_names <- paste0("DNB_Module_information_", x, ".txt")
                 DNB_output_mtx <- resultAllExtract(DNB_output, group = x, slot = "pre_result", mess = FALSE)
-                cat("Now write output of ", x, " into ", file_names, "\n", sep = "")
+                mycat("Now write output of ", x, " into ", file_names, "\n", sep = "", quiet=quiet)
                 write.table(DNB_output_mtx, file = file_names, quote = F, sep = "\t")
             }
         )
 
-    # step5. return result Object
-    cat("DNB model has been computed over!\n")
+    # step4. return result Object
+    mycat("DNB model has been computed over!\n", quiet=quiet)
     return(DNB_output)
 }
 
@@ -462,26 +466,25 @@ DNBfilter <- function(
         module_list[[i]] <- module_list[[i]][unique_index]
 
     # generate DNB_output@result
-    old_handlers <- progressr::handlers()
-    on.exit(progressr::handlers(old_handlers), add = TRUE)
 
-    old_opts <- options(
-        progressr.enable = getOption("progressr.enable"),
-        progressr.delay_stdout = getOption("progressr.delay_stdout")
-    )
-    on.exit(options(old_opts), add = TRUE)
-    is_nb <- !is.null(getOption("jupyter.in_kernel")) || Sys.getenv("JPY_PARENT_PID") != ""
-
-    if (quiet) {
-        progressr::handlers(character(0))
-    } else {
-        if (is_nb) {
-            options(progressr.enable = TRUE, progressr.delay_stdout = FALSE)
-            progressr::handlers(progressr::handler_txtprogressbar(file = stdout(), clear = FALSE))
-        } else {
-            progressr::handlers("txtprogressbar")
-        }
-    }
+    # old_handlers <- progressr::handlers()
+    # on.exit(progressr::handlers(old_handlers), add = TRUE)
+    # old_opts <- options(
+    #     progressr.enable = getOption("progressr.enable"),
+    #     progressr.delay_stdout = getOption("progressr.delay_stdout")
+    # )
+    # on.exit(options(old_opts), add = TRUE)
+    # is_nb <- !is.null(getOption("jupyter.in_kernel")) || Sys.getenv("JPY_PARENT_PID") != ""
+    # if (quiet) {
+    #     progressr::handlers(character(0))
+    # } else {
+    #     if (is_nb) {
+    #         options(progressr.enable = TRUE, progressr.delay_stdout = FALSE)
+    #         progressr::handlers(progressr::handler_txtprogressbar(file = stdout(), clear = FALSE))
+    #     } else {
+    #         progressr::handlers("txtprogressbar")
+    #     }
+    # }
     
     task_data_list <- lapply(group, function(g) {
         list(
@@ -489,48 +492,42 @@ DNBfilter <- function(
             name = g
         )
     })
+    param_list <- list(
+        module_list = module_list,
+        force_allgene = force_allgene,
+        size_effect = size_effect,
+        n_cores = inner_workers,
+        avoid_multicore = avoid_multicore,
+        precomputed_cor = precomputed_cor
+    )
+    work_func <- function(task, params, quiet_) {
+        mycat('Now run ', task$name, '\n', sep = '', quiet = quiet_)
+        res <- do.call(
+            DNBcomputeSingle, 
+            c(list(object = task$obj), params)
+        )
+        mycat(task$name, ' ends up successfully!\n', sep = '', quiet = quiet_)
+        return(res)
+    }
 
     if (fastMode && !only_inner_parallel) {
-        optimal_plan <- future::multisession # if (is_windows_os() || avoid_multicore) future::multisession else future::multicore
+        optimal_plan <- if (is_windows_os() || avoid_multicore) future::multisession else future::multicore
         old_plan <- future::plan(optimal_plan, workers = n_cores)
         on.exit(future::plan(old_plan), add = TRUE)
         
-        DNB_output_new <- progressr::with_progress({
-            pb <- progressr::progressor(along = task_data_list)
-
-            future.apply::future_lapply(task_data_list, function(task) {
-                res <- do.call(DNBcomputeSingle, list(
-                    object = task$obj, 
-                    module_list = module_list,
-                    force_allgene = force_allgene,
-                    size_effect = size_effect,
-                    n_cores = inner_workers,
-                    avoid_multicore = avoid_multicore,
-                    precomputed_cor = precomputed_cor
-                ))
-                pb(message = sprintf("Processed group: %s", task$name))
-                return(res)
-            })
-        })
-        
+        DNB_output_new <- future.apply::future_lapply(
+            task_data_list, 
+            work_func,
+            params = param_list,
+            quiet_ = FALSE
+        )
     } else {
-        DNB_output_new <- progressr::with_progress({
-            pb <- progressr::progressor(along = task_data_list)
-
-            lapply(task_data_list, function(task) {
-                res <- DNBcomputeSingle(
-                    object = task$obj, 
-                    module_list = module_list,
-                    force_allgene = force_allgene,
-                    size_effect = size_effect,
-                    n_cores = inner_workers,
-                    avoid_multicore = avoid_multicore,
-                    precomputed_cor = precomputed_cor
-                )
-                pb(message = sprintf("Processed group: %s", task$name))
-                return(res)
-            })
-        })
+        DNB_output_new <- lapply(
+            task_data_list, 
+            work_func,
+            params = param_list,
+            quiet_ = quiet
+        )
     }
     
     DNB_output_new <- mynew.DNB_output(

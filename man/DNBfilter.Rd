@@ -12,7 +12,7 @@ DNBfilter(
   fastMode = FALSE,
   n_cores = -1,
   avoid_multicore = FALSE,
-  only_inner_parallel = TRUE,
+  only_inner_parallel = FALSE,
   precomputed_cor = FALSE,
   quiet = FALSE
 )
@@ -32,7 +32,7 @@ DNBfilter(
 
 \item{avoid_multicore}{do not use future::multicore, default FALSE}
 
-\item{only_inner_parallel}{use serial computation rather than outer parallel and all cores for inner parallel, default TRUE.}
+\item{only_inner_parallel}{use serial computation rather than outer parallel and all cores for inner parallel, default FALSE}
 
 \item{precomputed_cor}{use pre-compute full correlation matrix for speed (may cost much space and/or time), default FALSE.
 
