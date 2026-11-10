@@ -291,7 +291,7 @@ DNBcompute <- function(
             task_data_list, 
             work_func,
             params = c(param_list, fastMode = inner_workers>1),
-            quiet_ = FALSE
+            quiet_ = TRUE
         )
     } else {
         DNB_output_list <- lapply(
@@ -519,7 +519,7 @@ DNBfilter <- function(
             task_data_list, 
             work_func,
             params = param_list,
-            quiet_ = FALSE
+            quiet_ = TRUE
         )
     } else {
         DNB_output_new <- lapply(
