@@ -420,7 +420,7 @@ DNBcomputeSingle_DNB_obj <- function(
 #' @return score matrix
 #'
 singleDNB <- function(
-    data,
+    data, # gene x cell
     module_list, # module_list is a list
     cor_vec = NULL,
     size_effect = TRUE,
@@ -443,7 +443,7 @@ singleDNB <- function(
     }
 
     if (n_sample > 1) {
-        data_tmp <- t(data)
+        data_tmp <- t(data) # cell x gene
         sd_all <- apply(data_tmp, 2, sd)
         mean_all <- apply(data_tmp, 2, mean)
         cv_all <- sd_all / mean_all
@@ -451,7 +451,7 @@ singleDNB <- function(
         gene_to_idx <- NULL
 
         if (precomputed_cor) {
-            cor_full <- mycor(data, method = "pearson")
+            cor_full <- mycor(data_tmp, method = "pearson")
             flat_cor_vec <- abs(as.numeric(as.dist(cor_full)))
             gene_to_idx <- seq(n_gene)
             names(gene_to_idx) <- all_genes
@@ -874,6 +874,7 @@ DNBcompute_custom.DNB_output <- function(
         lapply(object, function(x) x@data)
     else
         lapply(object, function(x) x@data[x@used_gene, , drop = FALSE])
+
     data <- data.frame()
     meta_df <- data.frame()
     for (i in seq(meta_levels)) {
@@ -881,22 +882,24 @@ DNBcompute_custom.DNB_output <- function(
 
         # get data
         data <- if (i == 1)
-            rbind(data, data_i)
+            data_i
         else
             cbind(data, data_i)
 
         # get meta
-        meta_df_tmp <- data.frame(a = colnames(data_i))
-        colnames(meta_df_tmp) <- meta_levels[i]
-        meta_df <- if (i == 1)
-            meta_df_tmp
-        else
-            cbind(meta_df, meta_df_tmp)
+        meta_tmp <- data.frame(
+            cell_id = colnames(data_i),
+            group = meta_levels[i],
+            stringsAsFactors = FALSE
+        )
+        
+        meta_df <- if (i == 1) meta_tmp else rbind(meta_df, meta_tmp)
     }
 
     # get meta
-    meta_tmp <- reshape2::melt(meta_df, id.var = c())
-    meta <- data.frame(meta_tmp$variable, row.names = meta_tmp$value)
+    rownames(meta_df) <- meta_df$cell_id
+    meta <- meta_df[, "group", drop = FALSE]
+
 
     # compute DNB
     object_new <- DNBcompute_custom(
