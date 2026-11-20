@@ -900,7 +900,6 @@ DNBcompute_custom.DNB_output <- function(
     rownames(meta_df) <- meta_df$cell_id
     meta <- meta_df[, "group", drop = FALSE]
 
-
     # compute DNB
     object_new <- DNBcompute_custom(
         data = data, 
@@ -908,6 +907,7 @@ DNBcompute_custom.DNB_output <- function(
         module_list = module_list, 
         meta_levels = meta_levels,
         size_effect = size_effect,
+        quiet = quiet,
         ...
     )
 
