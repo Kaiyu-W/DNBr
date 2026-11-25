@@ -1,17 +1,42 @@
-#' to ignore the warning and error of correlation computation
+#' Center and L2-normalize columns of a matrix
 #'
-#' @param x x
-#' @param y y
-#' @param ... other parameters of function cor
+#' @param x A numeric matrix.
+#' @return A matrix with each column centered (mean = 0) and scaled to unit L2 norm.
+#'   Columns with zero variance become \code{NaN}.
 #'
+center_scale <- function(x) {
+    x <- t(t(x) - colMeans(x))
+    t(t(x) / sqrt(colSums(x^2)))
+}
+#' Fast Pearson (Spearman) correlation via BLAS crossprod
 #'
-mycor <- function(x, y = NULL, ...) {
-    if (inherits(x, "sparseMatrix"))
-        x <- as.matrix(x)
-    if (inherits(y, "sparseMatrix"))
-        y <- as.matrix(y)
-    
-    obj <- suppressWarnings(stats::cor(x = x, y = y, ...))
+#' @param x A numeric matrix. Sparse matrices are converted to dense.
+#' @param y An optional numeric matrix. If \code{NULL}, computes correlations
+#'   among columns of \code{x}.
+#' @param method Character string specifying the method: \code{"pearson"} (default)
+#'   or \code{"spearman"}.
+#' @param ... Currently unused.
+#'
+#' @return A Pearson correlation matrix. \code{NA} entries (e.g., zero-variance
+#'   columns) are replaced with 1. Does not handle missing values.
+#'
+
+mycor <- function(x, y = NULL, method = c("pearson", "spearman"), ...) {
+    method <- match.arg(method)
+    if (inherits(x, "sparseMatrix")) x <- as.matrix(x)
+    if (inherits(y, "sparseMatrix")) y <- as.matrix(y)
+
+    if (method == "spearman") x <- apply(x, 2, rank, na.last = "keep")
+    x <- center_scale(x)
+
+    if (is.null(y)) {
+        obj <- crossprod(x)
+    } else {
+        if (method == "spearman") y <- apply(y, 2, rank, na.last = "keep")
+        y <- center_scale(y)
+        obj <- crossprod(x, y)
+    }
+
     obj[is.na(obj)] <- 1
     obj
 }
