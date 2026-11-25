@@ -127,14 +127,14 @@ NetworkCreate <- function(
     data_t <- t(data)
 
     if (p_require) {
-        # stats::cor() only output the correlation value
+        # stats::cor() / mycor() only output the correlation value
         # without p value
         # So use Hmisc::rcorr() to compute both two
         cor_res <- Hmisc::rcorr(data_t, type = method)
 
         feature_network <- cor_res[c('r', 'P')]
     } else {
-        cor_mtx <- cor(data_t, method = method)
+        cor_mtx <- mycor(data_t, method = method)
         feature_network <- list(r = cor_mtx)
     }
 
