@@ -2,17 +2,25 @@
 % Please edit documentation in R/config.R
 \name{mycor}
 \alias{mycor}
-\title{to ignore the warning and error of correlation computation}
+\title{Fast Pearson (Spearman) correlation via BLAS crossprod}
 \usage{
-mycor(x, y = NULL, ...)
+mycor(x, y = NULL, method = c("pearson", "spearman"), ...)
 }
 \arguments{
-\item{x}{x}
+\item{x}{A numeric matrix. Sparse matrices are converted to dense.}
 
-\item{y}{y}
+\item{y}{An optional numeric matrix. If \code{NULL}, computes correlations
+among columns of \code{x}.}
 
-\item{...}{other parameters of function cor}
+\item{method}{Character string specifying the method: \code{"pearson"} (default)
+or \code{"spearman"}.}
+
+\item{...}{Currently unused.}
+}
+\value{
+A Pearson correlation matrix. \code{NA} entries (e.g., zero-variance
+  columns) are replaced with 1. Does not handle missing values.
 }
 \description{
-to ignore the warning and error of correlation computation
+Fast Pearson (Spearman) correlation via BLAS crossprod
 }

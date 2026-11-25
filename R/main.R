@@ -101,6 +101,10 @@ DNBcompute <- function(
     high_method <- match.arg(high_method)
     cutree_method <- match.arg(cutree_method)
 
+    if ((n_cores==-1 || n_cores>1) && !fastMode) {
+        message("Parallel processing (n_cores > 1) requires fastMode = TRUE. Forcing n_cores = 1.")
+        n_cores <- 1
+    }
     if (fastMode & !quiet) {
         message("quiet will be set as TRUE if fastMode set as TRUE!")
         quiet <- TRUE
@@ -372,6 +376,10 @@ DNBfilter <- function(
 ) {
     if (!is(DNB_output, "DNB_output"))
         stop("ERROR input! Should be S3-DNB_output!")
+    if ((n_cores==-1 || n_cores>1) && !fastMode) {
+        message("Parallel processing (n_cores > 1) requires fastMode = TRUE. Forcing n_cores = 1.")
+        n_cores <- 1
+    }
 
     group <- names(DNB_output)
     if (fastMode) {

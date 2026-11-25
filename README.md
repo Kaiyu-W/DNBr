@@ -14,7 +14,7 @@ Notes:
 - Reproducibility: Set `force_allgene = TRUE` in `DNBfilter()` to reproduce outputs from earlier versions.
 - Performance & Memory Strategy:
   - Recommended: Prioritize a multi-threaded BLAS backend (OpenBLAS or MKL) with `fast = FALSE` and `precomputed_cor = TRUE`. Since the bottleneck is the correlation matrix computation, a multi-threaded BLAS provides significant acceleration within a single process without extra memory overhead.
-  - Alternative (Multi-process): Using `future` with `fast = TRUE` can further accelerate correlation calculations via parallel forks (on Unix-like OS). However, this approach drastically increases memory consumption and may cause `multisession` errors due to resource limits (specifically on Windows or when `avoid_multicore = TRUE`). Additionally, multi-process mode has not been tested on Windows.
+  - Alternative (Multi-process): Using `future` with `fast = TRUE` can further accelerate correlation calculations via parallel forks. However, this approach drastically increases memory consumption and may cause `multisession` errors due to resource limits (specifically on Windows or when `avoid_multicore = TRUE`). Additionally, multi-process mode has not been tested on Windows.
   - Warning: `precomputed_cor` requires storing large matrices in memory. Please ensure your system has sufficient RAM before enabling it.
 
 More details see the codes by `vignette("DNBr")` or `?DNBr::function` in R, please.  
