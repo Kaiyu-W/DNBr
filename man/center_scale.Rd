@@ -11,7 +11,6 @@ center_scale(x)
 }
 \value{
 A matrix with each column centered (mean = 0) and scaled to unit L2 norm.
-  Columns with zero variance become \code{NaN}.
 }
 \description{
 Center and L2-normalize columns of a matrix

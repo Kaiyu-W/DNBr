@@ -60,7 +60,9 @@ myprocess(
 
 \item{avoid_multicore}{same to DNBcompute}
 
-\item{precomputed_cor}{use pre-compute full correlation matrix for speed (may cost much space and/or time)}
+\item{precomputed_cor}{use pre-computed full correlation matrix to accelerate multi-process computation
+Note: This saves calculation time but may cost significant memory for serialization, 
+especially when using future::multisession. Use with caution if memory is limited or gene number is big.}
 }
 \description{
 the parameters come from inner DNBcompute

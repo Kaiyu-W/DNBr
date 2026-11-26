@@ -27,7 +27,7 @@ DNBcomputeSingle_DNB_obj(
 
 \item{avoid_multicore}{do not use future::multicore}
 
-\item{precomputed_cor}{use pre-compute full correlation matrix for speed (may cost much space and/or time)}
+\item{precomputed_cor}{use pre-compute full correlation matrix for speed}
 }
 \value{
 DNB_obj

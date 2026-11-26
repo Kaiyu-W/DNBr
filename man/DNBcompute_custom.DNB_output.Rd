@@ -12,6 +12,7 @@
   force_allgene = TRUE,
   size_effect = TRUE,
   quiet = FALSE,
+  cor_mat_list = NULL,
   ...
 )
 }
@@ -29,6 +30,8 @@
 \item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
 
 \item{quiet}{do not message}
+
+\item{cor_mat_list}{not use (automatically extracted from input DNB_output)}
 
 \item{...}{other params}
 }

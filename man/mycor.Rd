@@ -9,17 +9,15 @@ mycor(x, y = NULL, method = c("pearson", "spearman"), ...)
 \arguments{
 \item{x}{A numeric matrix. Sparse matrices are converted to dense.}
 
-\item{y}{An optional numeric matrix. If \code{NULL}, computes correlations
-among columns of \code{x}.}
+\item{y}{An optional numeric matrix. If NULL, computes correlations among columns of x.}
 
-\item{method}{Character string specifying the method: \code{"pearson"} (default)
-or \code{"spearman"}.}
+\item{method}{Character string specifying the method: "pearson" (default) or "spearman".}
 
 \item{...}{Currently unused.}
 }
 \value{
-A Pearson correlation matrix. \code{NA} entries (e.g., zero-variance
-  columns) are replaced with 1. Does not handle missing values.
+A Pearson correlation matrix. NA entries (e.g., zero-variance columns) are kept 
+(which never happened in theory). Does not handle missing values.
 }
 \description{
 Fast Pearson (Spearman) correlation via BLAS crossprod

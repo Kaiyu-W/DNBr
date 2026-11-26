@@ -26,7 +26,11 @@ DNBfilter(
 
 \item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
 
-\item{fastMode}{avoid using for loop, rathan future-apply function, default FALSE}
+\item{fastMode}{avoid using for loop, rather future-apply function, default FALSE
+
+  Note: Since the updated @cor_mat slot enables accelerated correlation retrieval, 
+
+  setting fastMode is no longer strictly necessary for performance gains in many cases.}
 
 \item{n_cores}{number of cores used for nested-parallel computation, default -1 (use all available cores minus 1)}
 
@@ -34,17 +38,17 @@ DNBfilter(
 
 \item{only_inner_parallel}{use serial computation rather than outer parallel and all cores for inner parallel, default FALSE}
 
-\item{precomputed_cor}{use pre-compute full correlation matrix for speed (may cost much space and/or time), default FALSE.
+\item{precomputed_cor}{use pre-compute full correlation matrix for speed (may cost much space and/or time), default FALSE
 
-Note: In parallel environments, pre-computing correlations for a large number of genes generates a large matrix/vector object.
+  Note: In parallel environments, pre-computing correlations for a large number of genes generates a large matrix/vector object.
 
-This may lead to serialization failures (e.g., "long vectors not supported")
+  This may lead to serialization failures (e.g., "long vectors not supported")
 
-or significant memory overhead during data transfer to worker processes.
+  or significant memory overhead during data transfer to worker processes.
 
-If you encounter such errors or have limited memory, consider setting
+  If you encounter such errors or have limited memory, consider setting
 
-this to FALSE (on-demand calculation) or reducing n_cores to 1.}
+  this to FALSE (on-demand calculation) or reducing n_cores to 1.}
 
 \item{quiet}{do not message}
 }

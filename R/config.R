@@ -2,25 +2,24 @@
 #'
 #' @param x A numeric matrix.
 #' @return A matrix with each column centered (mean = 0) and scaled to unit L2 norm.
-#'   Columns with zero variance become \code{NaN}.
 #'
 center_scale <- function(x) {
-    x <- t(t(x) - colMeans(x))
-    t(t(x) / sqrt(colSums(x^2)))
+    x_centered <- t(t(x) - colMeans(x))
+    norms <- sqrt(colSums(x_centered^2))
+    norms[norms == 0] <- 1
+    t(t(x_centered) / norms)
 }
+
 #' Fast Pearson (Spearman) correlation via BLAS crossprod
 #'
 #' @param x A numeric matrix. Sparse matrices are converted to dense.
-#' @param y An optional numeric matrix. If \code{NULL}, computes correlations
-#'   among columns of \code{x}.
-#' @param method Character string specifying the method: \code{"pearson"} (default)
-#'   or \code{"spearman"}.
+#' @param y An optional numeric matrix. If NULL, computes correlations among columns of x.
+#' @param method Character string specifying the method: "pearson" (default) or "spearman".
 #' @param ... Currently unused.
 #'
-#' @return A Pearson correlation matrix. \code{NA} entries (e.g., zero-variance
-#'   columns) are replaced with 1. Does not handle missing values.
+#' @return A Pearson correlation matrix. NA entries (e.g., zero-variance columns) are kept 
+#' (which never happened in theory). Does not handle missing values.
 #'
-
 mycor <- function(x, y = NULL, method = c("pearson", "spearman"), ...) {
     method <- match.arg(method)
     if (inherits(x, "sparseMatrix")) x <- as.matrix(x)
@@ -37,7 +36,7 @@ mycor <- function(x, y = NULL, method = c("pearson", "spearman"), ...) {
         obj <- crossprod(x, y)
     }
 
-    obj[is.na(obj)] <- 1
+    # obj[is.na(obj)] <- 0 # keep na if exists
     obj
 }
 
@@ -49,12 +48,9 @@ mycor <- function(x, y = NULL, method = c("pearson", "spearman"), ...) {
 #' @param pcc_out pcc outside the group
 #'
 CI <- function(n, Sd, pcc_in, pcc_out) {
-    ifelse(
-        test = pcc_out == 0,
-        yes = 0,
-        no = sqrt(n) * Sd * pcc_in / pcc_out
-    ) 
-    # the original formula comes when n = 1
+    ci <- sqrt(n) * Sd * pcc_in / pcc_out # the original formula comes when n = 1
+    ci[!is.finite(ci)] <- 0
+    ci
 }
 
 #' to print the process information

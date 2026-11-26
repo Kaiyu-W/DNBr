@@ -12,6 +12,7 @@
   force_allgene = TRUE,
   size_effect = TRUE,
   quiet = FALSE,
+  cor_mat_list = NULL,
   ...
 )
 }
@@ -31,6 +32,8 @@ or a matrix merging bulk GEMs from at least three different sample}
 \item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
 
 \item{quiet}{do not message}
+
+\item{cor_mat_list}{a named list of pre-computed correlation matrices}
 
 \item{...}{other params for DNBfilter()}
 }

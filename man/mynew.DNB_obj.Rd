@@ -4,7 +4,7 @@
 \alias{mynew.DNB_obj}
 \title{initialize or generate the S4-DNB_obj}
 \usage{
-mynew.DNB_obj(data, ntop = NULL, used_gene = NULL, ...)
+mynew.DNB_obj(data, ntop = NULL, used_gene = NULL, cor_mat = NULL, ...)
 }
 \arguments{
 \item{data}{raw data to compute DNB (matrix or data.frame)}
@@ -12,6 +12,8 @@ mynew.DNB_obj(data, ntop = NULL, used_gene = NULL, ...)
 \item{ntop}{parameters for slot result, the number of top rank for modules}
 
 \item{used_gene}{gene list of data to compute DNB, default all genes from data}
+
+\item{cor_mat}{pre-computed correlation matrix, default NULL}
 
 \item{...}{parameters transmitting to function mynew.DNB_res() to initialize or generate the slot pre_result (S4-DNB_res)}
 }

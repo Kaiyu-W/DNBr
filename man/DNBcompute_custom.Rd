@@ -12,6 +12,7 @@ DNBcompute_custom(
   force_allgene = TRUE,
   size_effect = TRUE,
   quiet = FALSE,
+  cor_mat_list = NULL,
   ...
 )
 }
@@ -21,16 +22,24 @@ DNBcompute_custom(
 \item{module_list}{a customized list of module gene}
 
 \item{meta}{a data.frame with rownames as cell-id as well as one column of group infomation, 
-use if data is gene expression matrix}
+
+  use if data is gene expression matrix}
 
 \item{meta_levels}{the order of meta group, default ordered by decreasing if NULL, 
-use if data is gene expression matrix}
+
+  use if data is gene expression matrix}
 
 \item{force_allgene}{whether force to use all genes from data, default TRUE}
 
 \item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
 
 \item{quiet}{do not message}
+
+\item{cor_mat_list}{a named list of pre-computed correlation matrices (gene x gene) corresponding to each group in meta_levels
+
+  If provided, these matrices will be used to accelerate computation. 
+
+  Names of the list must match meta_levels. Default is NULL.}
 
 \item{...}{other options for function DNBfilter()}
 }

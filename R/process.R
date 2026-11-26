@@ -19,7 +19,9 @@
 #' @param size_effect same to DNBcompute
 #' @param n_cores inner number of cores used for parallel computation
 #' @param avoid_multicore same to DNBcompute
-#' @param precomputed_cor use pre-compute full correlation matrix for speed (may cost much space and/or time)
+#' @param precomputed_cor use pre-computed full correlation matrix to accelerate multi-process computation
+#'      Note: This saves calculation time but may cost significant memory for serialization, 
+#'      especially when using future::multisession. Use with caution if memory is limited or gene number is big.
 #'
 #'
 myprocess <- function(
@@ -67,6 +69,7 @@ myprocess <- function(
     sle_tab <- data[, hig_gene, drop = FALSE]
 
     # calculate distance (pcc)
+    mycat("\tCalculating correlation matrix...\n", quiet = quiet)
     cor_sle <- mycor(sle_tab, method = "pearson")
     diag(cor_sle) <- 0 # useless
     dis_sle <- 1 - abs(cor_sle)
@@ -80,8 +83,7 @@ myprocess <- function(
         names(gene_to_idx) <- hig_gene
         sle_tab <- NULL # free memory for compute_score_eachgroup
     }
-    cor_sle <- NULL # free memory
-    rm(data)
+    rm(data, dis_sle)
     
     dist[is.na(dist)] <- max(dist, na.rm = TRUE) * 1.01
     
@@ -224,6 +226,7 @@ myprocess <- function(
     res_obj <- mynew.DNB_obj(
         data = data0,
         used_gene = hig_gene,
+        cor_mat = cor_sle,
         MEAN = score_mtx[1, ],
         SD = score_mtx[2, ],
         CV = score_mtx[3, ],
@@ -288,9 +291,9 @@ compute_score_eachgroup <- function(
 
     n_sample <- if (is.null(data)) -1 else nrow(data)
 
-    if (n_sample==1) {
+    if (n_sample %in% 1:2) {
         if (is.null(cor_vec))
-            stop("cor_vec is required when data has only one sample!")
+            stop("cor_vec is required when data has only one/two sample(s)!")
         if (length(cor_vec) != length(group_all))
             stop("cor_vec should be the same length of group_all!")
 
@@ -358,7 +361,7 @@ compute_score_eachgroup <- function(
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param n_cores number of cores for parallel computation, default 1 (serial)
 #' @param avoid_multicore do not use future::multicore
-#' @param precomputed_cor use pre-compute full correlation matrix for speed (may cost much space and/or time)
+#' @param precomputed_cor use pre-compute full correlation matrix for speed
 #'
 #' @return DNB_obj
 #'
@@ -373,20 +376,26 @@ DNBcomputeSingle_DNB_obj <- function(
 ) {
     data <- object@data
     used_gene <- object@used_gene
+    cor_mat <- object@cor_mat
     module_geneslist <- module_list$module
     bestMODULE <- module_list$bestMODULE
     Rank <- module_list$rank
     resource <- module_list$resource
-    score_mtx <- singleDNB(
+
+    res_list <- singleDNB(
         data = if (force_allgene) data else data[used_gene, , drop = FALSE], 
         module_list = module_geneslist,
+        cor_mat = cor_mat,
         size_effect = size_effect,
         n_cores = n_cores,
         avoid_multicore = avoid_multicore,
         precomputed_cor = precomputed_cor
     )
+    new_cor_mat <- res_list$new_cor_mat
+    if (!is.null(new_cor_mat)) object@cor_mat <- new_cor_mat
+
+    score_mtx <- res_list$score_mtx
     Rank_all <- rank(-1 * score_mtx[6, ])
-    
     result <- mynew.DNB_res(
         MEAN = score_mtx[1, ],
         SD = score_mtx[2, ],
@@ -402,8 +411,8 @@ DNBcomputeSingle_DNB_obj <- function(
             bestMODULE = bestMODULE
         )
     )
-    
     object@result <- result
+
     return(object)
 }
 
@@ -411,17 +420,21 @@ DNBcomputeSingle_DNB_obj <- function(
 #'
 #' @param data data
 #' @param module_list modules list
+#' @param cor_mat pre-computed correlation matrix (gene x gene), default NULL
 #' @param cor_vec named vector of correlation coefficient, when data has only one sample (col)
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param n_cores number of cores for parallel computation, default 1 (serial)
 #' @param avoid_multicore do not use future::multicore
-#' @param precomputed_cor use pre-compute full correlation matrix for speed (may cost much space and/or time)
+#' @param precomputed_cor use pre-compute full correlation matrix for speed
 #'
-#' @return score matrix
+#' @return A list containing:
+#'   - score_mtx: the score matrix
+#'   - new_cor_mat: the newly computed correlation matrix if updated when precomputed_cor=TRUE, otherwise NULL
 #'
 singleDNB <- function(
     data, # gene x cell
     module_list, # module_list is a list
+    cor_mat = NULL,
     cor_vec = NULL,
     size_effect = TRUE,
     n_cores = 1,
@@ -442,7 +455,10 @@ singleDNB <- function(
         )
     }
 
-    if (n_sample > 1) {
+    new_cor_mat <- NULL # Initialize return value for updated matrix
+    has_valid_cache <- !is.null(cor_mat) && all(all_genes %in% colnames(cor_mat)) # NULL works
+    
+    if (n_sample > 2) {
         data_tmp <- t(data) # cell x gene
         sd_all <- apply(data_tmp, 2, sd)
         mean_all <- apply(data_tmp, 2, mean)
@@ -450,19 +466,26 @@ singleDNB <- function(
         flat_cor_vec <- NULL
         gene_to_idx <- NULL
 
-        if (precomputed_cor) {
-            cor_full <- mycor(data_tmp, method = "pearson")
+        cor_full <- NULL
+        if (has_valid_cache) {
+            cor_full <- cor_mat[all_genes, all_genes]
+        } else if (precomputed_cor) {
+            new_cor_mat <- cor_full <- mycor(data_tmp, method = "pearson")
+        }
+        if (!is.null(cor_full)) {
             flat_cor_vec <- abs(as.numeric(as.dist(cor_full)))
             gene_to_idx <- seq(n_gene)
             names(gene_to_idx) <- all_genes
 
             data_tmp <- NULL # free memory
+            rm(cor_full)
         }
     } else {
         if (is.null(cor_vec))
-            stop("cor_vec is required when data has only one sample!")
+            stop("cor_vec is required when data has only one/two sample(s)!")
         if (length(cor_vec) != n_gene)
             stop("cor_vec should be the same length of singleDNB!")
+
         data_tmp <- data[, 1, drop = TRUE]
         sd_all <- NULL
         cv_all <- NULL
@@ -489,7 +512,7 @@ singleDNB <- function(
         size_effect = size_effect,
         flat_cor_vec = flat_cor_vec,
         gene_to_idx = gene_to_idx,
-        precomputed_cor = precomputed_cor,
+        precomputed_cor = !is.null(flat_cor_vec),
         cor_vec = cor_vec
     )
 
@@ -513,7 +536,11 @@ singleDNB <- function(
     rownames(score_mtx) <- c("Mean", "Sd", "cv", "pcc_in", "pcc_out", "score")
     colnames(score_mtx) <- names(module_list)
 
-    return(score_mtx)
+    # Return both results
+    return(list(
+        score_mtx = score_mtx, 
+        new_cor_mat = new_cor_mat
+    ))
 }
 
 #' Get the max Ranking of exactly group in S3:DNB_output after function DNBfilter
@@ -755,6 +782,7 @@ ScoreExtract.DNB_output <- function(
 #' @param force_allgene not use
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param quiet do not message
+#' @param cor_mat_list a named list of pre-computed correlation matrices
 #' @param ... other params for DNBfilter()
 #'
 #' @return S3:DNB_output
@@ -769,6 +797,7 @@ DNBcompute_custom.default <- function(
     force_allgene = TRUE,
     size_effect = TRUE,
     quiet = FALSE,
+    cor_mat_list = NULL,
     ...
 ) {
     # if (!is.matrix(data) && !is.data.frame(data))
@@ -801,6 +830,14 @@ DNBcompute_custom.default <- function(
         }
         meta <- meta_tmp[-1, , drop = FALSE]
     }
+
+    if (!is.null(cor_mat_list)) {
+        if (!is.list(cor_mat_list))
+            stop("ERROR cor_mat_list! Should be a list!")
+        if (!all(meta_levels %in% names(cor_mat_list)))
+            stop("ERROR cor_mat_list! Names should be equal to meta_levels (from meta)!")
+    }
+
     data <- data[, rownames(meta), drop = FALSE]
 
     module_len <- length(module_list)
@@ -818,10 +855,12 @@ DNBcompute_custom.default <- function(
     for (i in meta_levels) {
         data_tmp <- data[, rownames(meta)[meta[, 1] == i], drop = FALSE]
         data_tmp <- data.frame(data_tmp, check.names = FALSE)
+        current_cor_mat <- if(is.null(cor_mat_list)) NULL else cor_mat_list[[i]]
 
         DNB_output[[i]] <- mynew_dnb(
             data = data_tmp, 
             used_gene = rownames(data_tmp),
+            cor_mat = current_cor_mat,
             pre_result = mynew.DNB_res(ntop = module_len), 
             result = mynew.DNB_res(ntop = module_len)
         )
@@ -848,6 +887,7 @@ DNBcompute_custom.default <- function(
 #' @param force_allgene whether force to use all genes from data, default TRUE
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param quiet do not message
+#' @param cor_mat_list not use (automatically extracted from input DNB_output)
 #' @param ... other params
 #'
 #' @return S3:DNB_output
@@ -862,6 +902,7 @@ DNBcompute_custom.DNB_output <- function(
     force_allgene = TRUE,
     size_effect = TRUE,
     quiet = FALSE,
+    cor_mat_list = NULL,
     ...
 ) {
     object <- data
@@ -900,6 +941,10 @@ DNBcompute_custom.DNB_output <- function(
     rownames(meta_df) <- meta_df$cell_id
     meta <- meta_df[, "group", drop = FALSE]
 
+    # get cor_mat
+    cor_mat_list <- lapply(object, function(x) x@cor_mat)
+    names(cor_mat_list) <- meta_levels
+
     # compute DNB
     object_new <- DNBcompute_custom(
         data = data, 
@@ -908,6 +953,7 @@ DNBcompute_custom.DNB_output <- function(
         meta_levels = meta_levels,
         size_effect = size_effect,
         quiet = quiet,
+        cor_mat_list = cor_mat_list,
         ...
     )
 
@@ -951,4 +997,87 @@ combine_slot <- function(x, y) {
     }
 
     return(x)
+}
+
+#' Clear the precomputed correlation matrix
+#'
+#' @param object existing S4:DNB_obj object
+#' @return S4:DNB_obj
+#' @method ClearCorMat DNB_obj
+#' @export
+#'
+ClearCorMat.DNB_obj <- function(object) {
+    object@cor_mat <- NULL
+
+    return(object)
+}
+
+#' Clear the precomputed correlation matrix
+#'
+#' @param object existing S3:DNB_output object
+#' @return S3:DNB_output
+#' @method ClearCorMat DNB_output
+#' @export
+#'
+ClearCorMat.DNB_output <- function(object) {
+    for (i in seq(object)) {
+        object[[i]] <- ClearCorMat(object[[i]])
+    }
+
+    return(object)
+}
+
+#' Compute and store the full correlation matrix for caching.
+#'
+#' @param object existing S4:DNB_obj object
+#' @param method "pearson" (default) or "spearman"
+#' @param quiet suppress progress messages, default FALSE
+#'
+#' @return S4:DNB_obj
+#' @method ComputeCorMat DNB_obj
+#' @export
+#'
+ComputeCorMat.DNB_obj <- function(
+    object, 
+    method = c("pearson", "spearman"),
+    quiet = FALSE
+) {
+    method <- match.arg(method)
+    if (is.null(object@data)) stop("DNB_obj@data has no data!")
+    if (!is.null(object@cor_mat)) mycat("DNB_obj@cor_mat already existed! Result will replace it later.\n", quiet = quiet)
+
+    object@cor_mat <- mycor(
+        t(object@data), 
+        method = method
+    )
+    
+    return(object)
+}
+
+#' Compute and store the full correlation matrix for caching.
+#'
+#' @param object existing S3:DNB_output object
+#' @param method "pearson" (default) or "spearman"
+#' @param quiet suppress progress messages, default FALSE
+#'
+#' @return S3:DNB_output
+#' @method ComputeCorMat DNB_output
+#' @export
+#'
+ComputeCorMat.DNB_output <- function(
+    object, 
+    method = c("pearson", "spearman"),
+    quiet = FALSE
+) {
+    group <- names(object)
+    for (i in seq(group)) {
+        mycat("Processing group: ", group[i], "\n", sep = "", quiet = quiet)
+        object[[group[i]]] <- ComputeCorMat(
+            object[[group[i]]], 
+            method = method,
+            quiet = quiet
+        )
+    }
+
+    return(object)
 }

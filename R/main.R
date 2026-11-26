@@ -32,10 +32,20 @@
 #' @param maxModule the max number of genes of the module meeting requirements
 #' @param quiet do not print output of process during calculation (against verbose), default FALSE
 #' @param fastMode avoid using for loop, rathan future-apply function, default FALSE; if TRUE, quiet will be set as TRUE
+#'   
+#'   Note: fastMode is designed to accelerate group-level computation via parallel processing. 
+#' 
+#'   However, if your system supports multi-threaded BLAS (e.g., OpenBLAS or MKL), 
+#' 
+#'   you may achieve significant speedup without fastMode by leveraging underlying linear algebra parallelism. 
+#' 
+#'   In such cases, it is recommended to set n_cores equal to the number of groups (with inner cores = 1) 
+#' 
+#'   to avoid nested concurrency issues and potential bugs associated with multi-process environments.
 #' @param n_cores number of cores used for nested-parallel computation, default -1 (use all available cores minus 1)
 #' @param avoid_multicore use future::multisession but not future::multicore in inner parallel computation, 
 #' 
-#'   default FALSE (use future::multicore for unix-like os). 
+#'   default FALSE (use future::multicore for Unix-like OS). 
 #' 
 #'   This may works with balances between stability (multisession) and memory&speed (multicore).
 #' @param only_inner_parallel use serial computation rather than outer parallel and all cores for inner parallel, default FALSE
@@ -43,26 +53,30 @@
 #' @param cluster_fun customized function that user design for clustering to find module, 
 #' 
 #'   default NULL (hierarchical by stats::hclust(d, method = "complete", members = NULL))
-#'   
+#' 
 #'   This function should do function of clustering (e.g hclust + cutree), 
-#'   
+#' 
 #'   with input that first arg "d" = distance matrix and output "named int vector". 
-#'   
+#' 
 #'   If assigned, cutree_method and cutree_cutoff would be ignored
-#' @param cluster_args a list of extra arguments to the cluster_fun call. 
+#' @param cluster_args a list of extra arguments to the cluster_fun call
 #'   The names attribute of args gives the argument names. (same to base::do.call(args))
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
-#' @param precomputed_cor use pre-compute full correlation matrix for speed (may cost much space and/or time), default FALSE.
-#'   
+#' @param precomputed_cor use pre-compute full correlation matrix for speed (may cost much space and/or time), default FALSE
+#' 
 #'   Note: In parallel environments, pre-computing correlations for a large number of genes generates a large matrix/vector object.
-#'   
-#'   This may lead to serialization failures (e.g., "long vectors not supported")
-#'   
+#' 
+#'   This may lead to serialization failures (e.g., "long vectors not supported") when future::multisession
+#' 
 #'   or significant memory overhead during data transfer to worker processes.
-#'   
+#' 
 #'   If you encounter such errors or have limited memory, consider setting
-#'   
+#' 
 #'   this to FALSE (on-demand calculation) or reducing n_cores to 1.
+#' 
+#'   Use with caution if memory is limited; otherwise, it is recommended for future::multicore on Unix-like OS.  
+#' 
+#'   Regardless of this setting, the correlation matrix is always stored in @cor_mat slot.
 #'
 #' @return S3:DNB_output
 #'
@@ -254,43 +268,6 @@ DNBcompute <- function(
         old_plan <- future::plan(optimal_plan, workers = n_cores)
         on.exit(future::plan(old_plan), add = TRUE)
 
-        # progressr works bad with future.apply, so do NOT use it
-        # old_handlers <- progressr::handlers()
-        # on.exit(progressr::handlers(old_handlers), add = TRUE)
-        # old_opts <- options(
-        #     progressr.enable = getOption("progressr.enable"),
-        #     progressr.delay_stdout = getOption("progressr.delay_stdout")
-        # )
-        # on.exit(options(old_opts), add = TRUE)
-        # is_nb <- !is.null(getOption("jupyter.in_kernel")) || Sys.getenv("JPY_PARENT_PID") != ""
-        # if (quiet) {
-        #     progressr::handlers(character(0))
-        # } else {
-        #     if (is_nb) {
-        #         options(progressr.enable = TRUE, progressr.delay_stdout = FALSE)
-        #         progressr::handlers(progressr::handler_txtprogressbar(file = stdout(), clear = FALSE))
-        #     } else {
-        #         progressr::handlers("txtprogressbar")
-        #     }
-        # }
-
-        # DNB_output_list <- progressr::with_progress({
-        #     pb <- progressr::progressor(along = task_data_list)
-
-        #     future.apply::future_lapply(
-        #         task_data_list, 
-        #         function(task, params) {
-        #             cse <- do.call(myprocess, c(params, list(
-        #                 data = task$data, 
-        #                 assay_name = task$name
-        #             )))
-        #             pb(message = sprintf("Processed group: %s", task$name))
-        #             return(cse)
-        #         },
-        #         params = c(param_list, fastMode = inner_workers>1, quiet = TRUE)
-        #     )
-        # })
-
         DNB_output_list <- future.apply::future_lapply(
             task_data_list, 
             work_func,
@@ -334,20 +311,24 @@ DNBcompute <- function(
 #' @param ntop the numbers of modules to filter
 #' @param force_allgene whether force to use all genes from data, default FALSE (use the gene sets from output of DNBcompute)
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
-#' @param fastMode avoid using for loop, rathan future-apply function, default FALSE
+#' @param fastMode avoid using for loop, rather future-apply function, default FALSE
+#' 
+#'   Note: Since the updated @cor_mat slot enables accelerated correlation retrieval, 
+#' 
+#'   setting fastMode is no longer strictly necessary for performance gains in many cases.
 #' @param n_cores number of cores used for nested-parallel computation, default -1 (use all available cores minus 1)
 #' @param avoid_multicore do not use future::multicore, default FALSE
 #' @param only_inner_parallel use serial computation rather than outer parallel and all cores for inner parallel, default FALSE
-#' @param precomputed_cor use pre-compute full correlation matrix for speed (may cost much space and/or time), default FALSE.
-#'   
+#' @param precomputed_cor use pre-compute full correlation matrix for speed (may cost much space and/or time), default FALSE
+#' 
 #'   Note: In parallel environments, pre-computing correlations for a large number of genes generates a large matrix/vector object.
-#'   
+#' 
 #'   This may lead to serialization failures (e.g., "long vectors not supported")
-#'   
+#' 
 #'   or significant memory overhead during data transfer to worker processes.
-#'   
+#' 
 #'   If you encounter such errors or have limited memory, consider setting
-#'   
+#' 
 #'   this to FALSE (on-demand calculation) or reducing n_cores to 1.
 #' @param quiet do not message
 #'
@@ -472,28 +453,8 @@ DNBfilter <- function(
     unique_index <- !duplicated(module_list[['resource']])
     for (i in seq(module_list))
         module_list[[i]] <- module_list[[i]][unique_index]
-
-    # generate DNB_output@result
-
-    # old_handlers <- progressr::handlers()
-    # on.exit(progressr::handlers(old_handlers), add = TRUE)
-    # old_opts <- options(
-    #     progressr.enable = getOption("progressr.enable"),
-    #     progressr.delay_stdout = getOption("progressr.delay_stdout")
-    # )
-    # on.exit(options(old_opts), add = TRUE)
-    # is_nb <- !is.null(getOption("jupyter.in_kernel")) || Sys.getenv("JPY_PARENT_PID") != ""
-    # if (quiet) {
-    #     progressr::handlers(character(0))
-    # } else {
-    #     if (is_nb) {
-    #         options(progressr.enable = TRUE, progressr.delay_stdout = FALSE)
-    #         progressr::handlers(progressr::handler_txtprogressbar(file = stdout(), clear = FALSE))
-    #     } else {
-    #         progressr::handlers("txtprogressbar")
-    #     }
-    # }
     
+    # worker
     task_data_list <- lapply(group, function(g) {
         list(
             obj = DNB_output[[g]],
@@ -726,12 +687,19 @@ DNBplot <- function(
 #' @param data input data, S4:DNB_output or gene expression matrix
 #' @param module_list a customized list of module gene
 #' @param meta a data.frame with rownames as cell-id as well as one column of group infomation, 
+#' 
 #'   use if data is gene expression matrix
 #' @param meta_levels the order of meta group, default ordered by decreasing if NULL, 
+#' 
 #'   use if data is gene expression matrix
 #' @param force_allgene whether force to use all genes from data, default TRUE
 #' @param size_effect whether consider the effect of sample size when compute CI of DNB, default TRUE
 #' @param quiet do not message
+#' @param cor_mat_list a named list of pre-computed correlation matrices (gene x gene) corresponding to each group in meta_levels
+#' 
+#'   If provided, these matrices will be used to accelerate computation. 
+#' 
+#'   Names of the list must match meta_levels. Default is NULL.
 #' @param ... other options for function DNBfilter()
 #' 
 #' @return S3:DNB_output
@@ -756,7 +724,47 @@ DNBcompute_custom <- function(
     force_allgene = TRUE,
     size_effect = TRUE,
     quiet = FALSE,
+    cor_mat_list = NULL,
     ...
 ) {
     UseMethod("DNBcompute_custom")
+}
+
+#' @title ClearCorMat
+#'
+#' @description Clear the precomputed correlation matrix (to save memory or reset)
+#'
+#' @param object S3:DNB_output or S4:DNB_obj
+#' 
+#' @return The same object with DNB_obj@cor_mat set to NULL
+#'
+#' @author Kaiyu Wang, in ChenLab of JClab, Chengdu, China
+#'
+#' @export
+#'
+ClearCorMat <- function(object) {
+    UseMethod("ClearCorMat")
+}
+
+
+#' @title ComputeCorMat
+#'
+#' @description Compute and store the full correlation matrix for caching.
+#'
+#' @param object S3:DNB_output or S4:DNB_obj
+#' @param method "pearson" (default) or "spearman"
+#' @param quiet suppress progress messages, default FALSE
+#' 
+#' @return The same object with DNB_obj@cor_mat updated with the computed matrix from DNB_obj@data.
+#'
+#' @author Kaiyu Wang, in ChenLab of JClab, Chengdu, China
+#'
+#' @export
+#'
+ComputeCorMat <- function(
+    object, 
+    method = c("pearson", "spearman"), 
+    quiet = FALSE
+) {
+    UseMethod("ComputeCorMat")
 }

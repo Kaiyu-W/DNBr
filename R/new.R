@@ -46,10 +46,12 @@ mynew_res <- setClass(
     sealed = TRUE
 )
 
-#' define S4 object of DNB_obj, includes the raw data(matrix or data.frame), the pre-results (S4-DNB_res) and the results of filtered (ntop max) modules (S4-DNB_res)
+#' define S4 object of DNB_obj, includes the raw data(matrix or data.frame) and its correlation matrix, 
+#' the pre-results (S4-DNB_res) and the results of filtered (ntop max) modules (S4-DNB_res)
 #'
 #' @slot data ANY.
 #' @slot used_gene ANY.
+#' @slot cor_mat ANY.
 #' @slot pre_result DNB_res.
 #' @slot result DNB_res.
 #'
@@ -60,6 +62,7 @@ mynew_dnb <- setClass(
     slots = list(
         data = 'ANY',
         used_gene = 'ANY',
+        cor_mat = 'ANY',
         pre_result = 'DNB_res',
         result = 'DNB_res'
     ),
@@ -103,6 +106,7 @@ mynew.DNB_res <- function(
 #' @param data raw data to compute DNB (matrix or data.frame)
 #' @param ntop parameters for slot result, the number of top rank for modules
 #' @param used_gene gene list of data to compute DNB, default all genes from data
+#' @param cor_mat pre-computed correlation matrix, default NULL
 #' @param ... parameters transmitting to function mynew.DNB_res() to initialize or generate the slot pre_result (S4-DNB_res)
 #'
 #' @return S4 object, DNB_obj
@@ -111,11 +115,13 @@ mynew.DNB_obj <- function(
     data,
     ntop = NULL,
     used_gene = NULL,
+    cor_mat = NULL,
     ...
 ) {
     mynew_dnb(
         data = data,
         used_gene = if (is.null(used_gene)) rownames(data) else used_gene,
+        cor_mat = cor_mat,
         pre_result = mynew.DNB_res(...),
         result = mynew.DNB_res(ntop = ntop)
     )
@@ -157,9 +163,19 @@ setMethod(
         data_class <- class(object@data)[1]
         len_preres <- length(object@pre_result@rank)
         len_res <- length(object@result@rank)
+
+        if (is.null(object@cor_mat)) {
+            cor_info <- "...@cor_mat, NULL\n"
+        } else {
+            cor_class <- class(object@cor_mat)[1]
+            cor_dim <- dim(object@cor_mat)
+            cor_info <- paste0("...@cor_mat, a ", cor_class, " with ", cor_dim[1], " Rows and ", cor_dim[2], " Cols\n")
+        }
+
         cat("A S4 object (DNB_obj), includes:\n",
             "...@data, a ", data_class, " with ", data_dim[1], " Rows and ", data_dim[2], " Cols\n",
             "...@used_gene, a list of used genes\n",
+            cor_info,
             "...@pre_result, a S4 object (DNB_res), with ", len_preres, " Modules in total\n",
             "...@result, a S4 object (DNB_res), with ", len_res, " Modules in total\n",
             sep = ""

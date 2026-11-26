@@ -7,6 +7,7 @@
 singleDNB(
   data,
   module_list,
+  cor_mat = NULL,
   cor_vec = NULL,
   size_effect = TRUE,
   n_cores = 1,
@@ -19,6 +20,8 @@ singleDNB(
 
 \item{module_list}{modules list}
 
+\item{cor_mat}{pre-computed correlation matrix (gene x gene), default NULL}
+
 \item{cor_vec}{named vector of correlation coefficient, when data has only one sample (col)}
 
 \item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
@@ -27,10 +30,12 @@ singleDNB(
 
 \item{avoid_multicore}{do not use future::multicore}
 
-\item{precomputed_cor}{use pre-compute full correlation matrix for speed (may cost much space and/or time)}
+\item{precomputed_cor}{use pre-compute full correlation matrix for speed}
 }
 \value{
-score matrix
+A list containing:
+  - score_mtx: the score matrix
+  - new_cor_mat: the newly computed correlation matrix if updated when precomputed_cor=TRUE, otherwise NULL
 }
 \description{
 Compute data for the modules list, and return score matrix

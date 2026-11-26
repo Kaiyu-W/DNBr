@@ -63,13 +63,23 @@ or a matrix merging bulk GEMs from at least three different sample}
 
 \item{quiet}{do not print output of process during calculation (against verbose), default FALSE}
 
-\item{fastMode}{avoid using for loop, rathan future-apply function, default FALSE; if TRUE, quiet will be set as TRUE}
+\item{fastMode}{avoid using for loop, rathan future-apply function, default FALSE; if TRUE, quiet will be set as TRUE
+  
+  Note: fastMode is designed to accelerate group-level computation via parallel processing. 
+
+  However, if your system supports multi-threaded BLAS (e.g., OpenBLAS or MKL), 
+
+  you may achieve significant speedup without fastMode by leveraging underlying linear algebra parallelism. 
+
+  In such cases, it is recommended to set n_cores equal to the number of groups (with inner cores = 1) 
+
+  to avoid nested concurrency issues and potential bugs associated with multi-process environments.}
 
 \item{n_cores}{number of cores used for nested-parallel computation, default -1 (use all available cores minus 1)}
 
 \item{avoid_multicore}{use future::multisession but not future::multicore in inner parallel computation, 
 
-  default FALSE (use future::multicore for unix-like os). 
+  default FALSE (use future::multicore for Unix-like OS). 
 
   This may works with balances between stability (multisession) and memory&speed (multicore).}
 
@@ -80,29 +90,33 @@ or a matrix merging bulk GEMs from at least three different sample}
 \item{cluster_fun}{customized function that user design for clustering to find module, 
 
   default NULL (hierarchical by stats::hclust(d, method = "complete", members = NULL))
-  
+
   This function should do function of clustering (e.g hclust + cutree), 
-  
+
   with input that first arg "d" = distance matrix and output "named int vector". 
-  
+
   If assigned, cutree_method and cutree_cutoff would be ignored}
 
-\item{cluster_args}{a list of extra arguments to the cluster_fun call. 
+\item{cluster_args}{a list of extra arguments to the cluster_fun call
 The names attribute of args gives the argument names. (same to base::do.call(args))}
 
 \item{size_effect}{whether consider the effect of sample size when compute CI of DNB, default TRUE}
 
-\item{precomputed_cor}{use pre-compute full correlation matrix for speed (may cost much space and/or time), default FALSE.
+\item{precomputed_cor}{use pre-compute full correlation matrix for speed (may cost much space and/or time), default FALSE
 
-Note: In parallel environments, pre-computing correlations for a large number of genes generates a large matrix/vector object.
+  Note: In parallel environments, pre-computing correlations for a large number of genes generates a large matrix/vector object.
 
-This may lead to serialization failures (e.g., "long vectors not supported")
+  This may lead to serialization failures (e.g., "long vectors not supported") when future::multisession
 
-or significant memory overhead during data transfer to worker processes.
+  or significant memory overhead during data transfer to worker processes.
 
-If you encounter such errors or have limited memory, consider setting
+  If you encounter such errors or have limited memory, consider setting
 
-this to FALSE (on-demand calculation) or reducing n_cores to 1.}
+  this to FALSE (on-demand calculation) or reducing n_cores to 1.
+
+  Use with caution if memory is limited; otherwise, it is recommended for future::multicore on Unix-like OS.  
+
+  Regardless of this setting, the correlation matrix is always stored in @cor_mat slot.}
 }
 \value{
 S3:DNB_output

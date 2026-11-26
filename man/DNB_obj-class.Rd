@@ -4,12 +4,14 @@
 \name{DNB_obj-class}
 \alias{DNB_obj-class}
 \alias{mynew_dnb}
-\title{define S4 object of DNB_obj, includes the raw data(matrix or data.frame), the pre-results (S4-DNB_res) and the results of filtered (ntop max) modules (S4-DNB_res)}
+\title{define S4 object of DNB_obj, includes the raw data(matrix or data.frame) and its correlation matrix, 
+the pre-results (S4-DNB_res) and the results of filtered (ntop max) modules (S4-DNB_res)}
 \value{
 S4 object, DNB_obj
 }
 \description{
-define S4 object of DNB_obj, includes the raw data(matrix or data.frame), the pre-results (S4-DNB_res) and the results of filtered (ntop max) modules (S4-DNB_res)
+define S4 object of DNB_obj, includes the raw data(matrix or data.frame) and its correlation matrix, 
+the pre-results (S4-DNB_res) and the results of filtered (ntop max) modules (S4-DNB_res)
 }
 \section{Slots}{
 
@@ -17,6 +19,8 @@ define S4 object of DNB_obj, includes the raw data(matrix or data.frame), the pr
 \item{\code{data}}{ANY.}
 
 \item{\code{used_gene}}{ANY.}
+
+\item{\code{cor_mat}}{ANY.}
 
 \item{\code{pre_result}}{DNB_res.}
 
